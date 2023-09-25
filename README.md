@@ -8,18 +8,18 @@ Apache Flink is an open source stream processing framework with powerful stream-
 
 Learn more about Flink at [https://flink.apache.org/](https://flink.apache.org/)
 
-## Building the Apache Flink AWS Connectors from Source
+## Building the Apache Flink Prometheus Connector from Source
 
 Prerequisites:
 
 * Unix-like environment (we use Linux, Mac OS X)
 * Git
-* Maven (we recommend version 3.8.5)
+* Maven (we recommend version 3.8.6)
 * Java 11
 
 ```
-git clone https://github.com/apache/flink-connector-aws.git
-cd flink-connector-aws
+git clone https://github.com/apache/flink-connector-prometheus.git
+cd flink-connector-prometheus
 mvn clean package -DskipTests
 ```
 
