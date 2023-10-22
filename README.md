@@ -8,6 +8,14 @@ Apache Flink is an open source stream processing framework with powerful stream-
 
 Learn more about Flink at [https://flink.apache.org/](https://flink.apache.org/)
 
+## Modules
+
+This repository contains the following modules
+
+* [Prometheus Connector](./prometheus-connector): Flink Prometheus Connector implementation; supports optional request signer
+* [Amazon Managed Prometheus Request Signer](./amp-request-signer): Implementation of request signer for Amazon Managed Prometheus (AMP)
+* [Sample application](./msf-amp-example): Sample application using the Prometheus Connector; designed to run locally and on Amazon Managed Service for Apache Flink, and write to Amazon Managed Prometheus
+
 ## Building the Apache Flink Prometheus Connector from Source
 
 Prerequisites:
@@ -66,4 +74,3 @@ This article describes [how to contribute to Apache Flink](https://flink.apache.
 
 Apache Flink is an open source project of The Apache Software Foundation (ASF).
 The Apache Flink project originated from the [Stratosphere](http://stratosphere.eu) research project.
-

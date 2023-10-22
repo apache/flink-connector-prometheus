@@ -36,4 +36,5 @@ tools/flink
 tools/flink-*
 tools/releasing/release
 tools/japicmp-output
-*/.idea/
+.idea
+dependency-reduced-pom.xml
