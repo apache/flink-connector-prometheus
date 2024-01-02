@@ -33,18 +33,18 @@ import java.util.function.Supplier;
  */
 public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
 
-    private final int numberOfDummySources;
+    private final int numberOfDummyInstances;
     private final int minNrOfSamples;
     private final int maxNrOfSamples;
 
     public SimpleInstanceMetricsTimeSeriesGenerator(
-            int minNrOfSamples, int maxNrOfSamples, int numberOfDummySources) {
-        this.numberOfDummySources = numberOfDummySources;
+            int minNrOfSamples, int maxNrOfSamples, int numberOfDummyInstances) {
+        this.numberOfDummyInstances = numberOfDummyInstances;
         this.minNrOfSamples = minNrOfSamples;
         this.maxNrOfSamples = maxNrOfSamples;
     }
 
-    private String dummySourceId(int number) {
+    private String dummyInstanceId(int number) {
         return "I" + String.format("%010d", number);
     }
 
@@ -57,10 +57,10 @@ public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
             int maxNrOfSamples,
             int numberOfParallelSubTasks,
             int subTaskIndex) {
-        int sourcesPerSubTask = numberOfDummySources / numberOfParallelSubTasks;
+        int sourcesPerSubTask = numberOfDummyInstances / numberOfParallelSubTasks;
         int dummySourceIndex =
                 sourcesPerSubTask * subTaskIndex + RandomUtils.nextInt(0, sourcesPerSubTask);
-        String instanceId = dummySourceId(dummySourceIndex);
+        String instanceId = dummyInstanceId(dummySourceIndex);
 
         int nrOfSamples = RandomUtils.nextInt(minNrOfSamples, maxNrOfSamples + 1);
         String metricName = (RandomUtils.nextDouble(0, 1) < 0.5) ? "CPU" : "Memory";

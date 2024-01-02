@@ -31,11 +31,10 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.LocalStreamEnvironment;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.util.Preconditions;
 
 import com.amazonaws.services.kinesisanalytics.runtime.KinesisAnalyticsRuntime;
 import com.amazonaws.services.managedflink.domain.SimpleInstanceMetricsTimeSeriesGenerator;
-import com.amazonaws.services.managedflink.source.ParallelFixedPaceSource;
+import com.amazonaws.services.managedflink.source.FixedDelaySource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,14 +43,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 /**
  * Test application, designed to run on Amazon Managed Service for Apache Flink and write to Amazon
  * Managed Prometheus.
  *
- * <p>To run locally the application expects this cli args: --Region=&lg;region&gt;
- * --PrometheusWriteUrl=&lg;prometheus-write-url&gt; (optional) --webUI
+ * <p>To run locally the application expects this cli args: --Region &lg;region&gt;
+ * --PrometheusWriteUrl &lg;prometheus-write-url&gt; (optional) --webUI
  */
 public class DataStreamJob {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataStreamJob.class);
@@ -100,83 +99,51 @@ public class DataStreamJob {
 
         if (isLocal(env)) {
             // Checkpointing and parallelism are set by MSF when running on AWS
-            // env.enableCheckpointing(60000);
             env.setParallelism(2);
             env.disableOperatorChaining();
         }
 
         String prometheusRegion = applicationParameters.get("Region");
         String prometheusRemoteWriteUrl = applicationParameters.get("PrometheusWriteUrl");
-        int sinkParallelismDivisor = applicationParameters.getInt("SinkParallelismDivisor", 1);
 
         int generatorMinSamplesPerTimeSeries =
                 applicationParameters.getInt("GeneratorMinNrOfSamplesPerTimeSeries", 2);
         int generatorMaxSamplesPerTimeSeries =
                 applicationParameters.getInt("GeneratorMaxNrOfSamplesPerTimeSeries", 10);
-        int generatorNumberOfDummySources =
-                applicationParameters.getInt("GeneratorNumberOfDummySources", 60);
+        int generatorNumberOfDummyInstances =
+                applicationParameters.getInt("GeneratorNumberOfDummyInstances", 60);
         long generatorPauseBetweenTimeSeriesMs =
                 applicationParameters.getLong("GeneratorPauseBetweenTimeSeriesMs", 100);
         int maxRequestRetryCount =
                 applicationParameters.getInt("MaxRequestRetryCount", Integer.MAX_VALUE);
 
-        int applicationParallelism = env.getParallelism();
-        int generatorParallelism = applicationParallelism;
-        int sinkParallelism = applicationParallelism / sinkParallelismDivisor;
-
         LOGGER.info(
                 "Sink connector configuration:"
-                        + "\n\t\tSink parallelism: {}"
                         + "\n\t\tPrometheus URL:{}\n\t\tPrometheus Region:{}",
-                sinkParallelism,
                 prometheusRemoteWriteUrl,
                 prometheusRegion);
 
         LOGGER.info(
                 "Data Generator configuration:"
-                        + "\n\t\tGenerator parallelism: {}"
                         + "\n\t\tMin samples per time series:{}\n\t\tMax samples per time series:{}\n\t\tPause between time series:{} ms"
-                        + "\n\t\tMax request retry count:{}"
-                        + "\n\t\tNumber of dummy sources:{} ({} per parallelism)",
-                generatorParallelism,
+                        + "\n\t\tNumber of dummy sources:{}",
                 generatorMinSamplesPerTimeSeries,
                 generatorMaxSamplesPerTimeSeries,
                 generatorPauseBetweenTimeSeriesMs,
-                maxRequestRetryCount,
-                generatorNumberOfDummySources,
-                generatorNumberOfDummySources / generatorParallelism);
-
-        // Source function that can generates errors
-        //        Supplier<PrometheusTimeSeries> eventGenerator = new
-        // InstanceMetricsTimeSeriesGenerator(generatorMinSamplesPerTimeSeries,
-        // generatorMaxSamplesPerTimeSeries, IntroduceErrors.NO_ERROR).generator();
-
-        // Single-parallelism source function
-        //        Supplier<PrometheusTimeSeries> eventGenerator = new
-        // SimpleInstanceMetricsTimeSeriesGenerator(generatorMinSamplesPerTimeSeries,
-        // generatorMaxSamplesPerTimeSeries, generatorNumberOfDummySources).generator();
-        //        SourceFunction<PrometheusTimeSeries> source = new
-        // FixedPaceSource<>(PrometheusTimeSeries.class, eventGenerator,
-        // generatorPauseBetweenTimeSeriesMs);
-
-        // Parallel source function
-        Preconditions.checkArgument(
-                generatorNumberOfDummySources % generatorParallelism == 0,
-                "The number of dummy sources must be divisible by the parallelism of the generator operator");
-        BiFunction<Integer, Integer, PrometheusTimeSeries> eventGenerator =
+                generatorNumberOfDummyInstances);
+        Supplier<PrometheusTimeSeries> eventGenerator =
                 new SimpleInstanceMetricsTimeSeriesGenerator(
                                 generatorMinSamplesPerTimeSeries,
                                 generatorMaxSamplesPerTimeSeries,
-                                generatorNumberOfDummySources)
-                        .parallelGenerator();
+                                generatorNumberOfDummyInstances)
+                        .generator();
         SourceFunction<PrometheusTimeSeries> source =
-                new ParallelFixedPaceSource<>(
+                new FixedDelaySource<>(
                         PrometheusTimeSeries.class,
                         eventGenerator,
                         generatorPauseBetweenTimeSeriesMs);
 
-        DataStream<PrometheusTimeSeries> prometheusTimeSeries =
-                env.addSource(source).setParallelism(generatorParallelism);
+        DataStream<PrometheusTimeSeries> prometheusTimeSeries = env.addSource(source);
 
         // Setting all config, even if default values
         AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> sink =
@@ -199,8 +166,7 @@ public class DataStreamJob {
 
         prometheusTimeSeries
                 .keyBy(new PrometheusTimeSeriesLabelsAndMetricNameKeySelector())
-                .sinkTo(sink)
-                .setParallelism(sinkParallelism);
+                .sinkTo(sink);
 
         env.execute("Prometheus Sink test");
     }
