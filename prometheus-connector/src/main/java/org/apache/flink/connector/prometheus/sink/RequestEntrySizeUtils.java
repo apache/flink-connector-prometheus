@@ -21,13 +21,11 @@ import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import java.util.Collection;
 
-/**
- * Collection of methods to calculate the sink RequestEntry "size"
- */
+/** Collection of methods to calculate the sink RequestEntry "size". */
 public class RequestEntrySizeUtils {
 
     /**
-     * Size of a  request entry (a {@link Types.TimeSeries time-series}) for the purpose of batching.
+     * Size of a request entry (a {@link Types.TimeSeries time-series}) for the purpose of batching.
      * Count the number of {@link Types.Sample samples}
      *
      * @param requestEntry a time-series
@@ -38,8 +36,8 @@ public class RequestEntrySizeUtils {
     }
 
     /**
-     * Serialized size of a request entry {@link Types.TimeSeries TimeSeries}: the number of bytes of the
-     * protobuf- serialized representation of the TimeSeries.
+     * Serialized size of a request entry {@link Types.TimeSeries TimeSeries}: the number of bytes
+     * of the protobuf- serialized representation of the TimeSeries.
      *
      * @param requestEntry a time-series
      * @return number of bytes
@@ -49,13 +47,15 @@ public class RequestEntrySizeUtils {
     }
 
     /**
-     * Count the number of {@link Types.Sample samples} in a collection of {@link Types.TimeSeries time-series}
-     * (a batch).
+     * Count the number of {@link Types.Sample samples} in a collection of {@link Types.TimeSeries
+     * time-series} (a batch).
      *
      * @param requestEntries collection of time-series
      * @return number of samples
      */
     public static long countSamples(Collection<Types.TimeSeries> requestEntries) {
-        return requestEntries.stream().mapToLong(RequestEntrySizeUtils::requestSizeForBatching).sum();
+        return requestEntries.stream()
+                .mapToLong(RequestEntrySizeUtils::requestSizeForBatching)
+                .sum();
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.flink.connector.prometheus.sink.SinkCounters;
+
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.HttpStatus;
@@ -27,24 +28,28 @@ import org.apache.hc.core5.util.TimeValue;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLException;
+
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 class RemoteWriteRetryStrategyTest {
 
     private static final int INITIAL_RETRY_DELAY_MS = 30;
     private static final int MAX_RETRY_DELAY_MS = 5000;
-    private static final RetryConfiguration RETRY_CONFIGURATION = RetryConfiguration.builder()
-            .setInitialRetryDelayMS(INITIAL_RETRY_DELAY_MS)
-            .setMaxRetryDelayMS(MAX_RETRY_DELAY_MS)
-            .setMaxRetryCount(Integer.MAX_VALUE)
-            .build();
+    private static final RetryConfiguration RETRY_CONFIGURATION =
+            RetryConfiguration.builder()
+                    .setInitialRetryDelayMS(INITIAL_RETRY_DELAY_MS)
+                    .setMaxRetryDelayMS(MAX_RETRY_DELAY_MS)
+                    .setMaxRetryCount(Integer.MAX_VALUE)
+                    .build();
 
     @Test
     public void shouldRetryOnRetriableErrorResponse() {
@@ -85,10 +90,17 @@ class RemoteWriteRetryStrategyTest {
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, counters);
 
-        assertFalse(strategy.retryRequest(httpRequest, new InterruptedIOException("dummy"), 1, httpContext));
-        assertFalse(strategy.retryRequest(httpRequest, new UnknownHostException("dummy"), 1, httpContext));
-        assertFalse(strategy.retryRequest(httpRequest, new ConnectException("dummy"), 1, httpContext));
-        assertFalse(strategy.retryRequest(httpRequest, new NoRouteToHostException("dummy"), 1, httpContext));
+        assertFalse(
+                strategy.retryRequest(
+                        httpRequest, new InterruptedIOException("dummy"), 1, httpContext));
+        assertFalse(
+                strategy.retryRequest(
+                        httpRequest, new UnknownHostException("dummy"), 1, httpContext));
+        assertFalse(
+                strategy.retryRequest(httpRequest, new ConnectException("dummy"), 1, httpContext));
+        assertFalse(
+                strategy.retryRequest(
+                        httpRequest, new NoRouteToHostException("dummy"), 1, httpContext));
         assertFalse(strategy.retryRequest(httpRequest, new SSLException("dummy"), 1, httpContext));
     }
 
@@ -100,26 +112,36 @@ class RemoteWriteRetryStrategyTest {
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, counters);
 
-        assertEquals(TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS), strategy.getRetryInterval(httpResponse, 1, httpContext));
-        assertEquals(TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS * 2), strategy.getRetryInterval(httpResponse, 2, httpContext));
-        assertEquals(TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS * 2 * 2), strategy.getRetryInterval(httpResponse, 3, httpContext));
-        assertEquals(TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS * 2 * 2 * 2), strategy.getRetryInterval(httpResponse, 4, httpContext));
+        assertEquals(
+                TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS),
+                strategy.getRetryInterval(httpResponse, 1, httpContext));
+        assertEquals(
+                TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS * 2),
+                strategy.getRetryInterval(httpResponse, 2, httpContext));
+        assertEquals(
+                TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS * 2 * 2),
+                strategy.getRetryInterval(httpResponse, 3, httpContext));
+        assertEquals(
+                TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS * 2 * 2 * 2),
+                strategy.getRetryInterval(httpResponse, 4, httpContext));
     }
-
 
     @Test
     public void retryDelayShouldNotExceedMaximumDelay() {
-        var retryConfiguration = RetryConfiguration.builder()
-                .setInitialRetryDelayMS(30)
-                .setMaxRetryDelayMS(5000)
-                .setMaxRetryCount(Integer.MAX_VALUE)
-                .build();
+        var retryConfiguration =
+                RetryConfiguration.builder()
+                        .setInitialRetryDelayMS(30)
+                        .setMaxRetryDelayMS(5000)
+                        .setMaxRetryCount(Integer.MAX_VALUE)
+                        .build();
         var httpResponse = mock(HttpResponse.class);
         var httpContext = mock(HttpContext.class);
         var counters = mock(SinkCounters.class);
 
         var strategy = new RemoteWriteRetryStrategy(retryConfiguration, counters);
 
-        assertEquals(TimeValue.ofMilliseconds(5000), strategy.getRetryInterval(httpResponse, 10_000, httpContext));
+        assertEquals(
+                TimeValue.ofMilliseconds(5000),
+                strategy.getRetryInterval(httpResponse, 10_000, httpContext));
     }
 }

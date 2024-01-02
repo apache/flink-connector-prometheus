@@ -19,6 +19,7 @@ package org.apache.flink.connector.prometheus.sink.http;
 
 import java.io.Serializable;
 
+/** Defines the retry strategy configuration. */
 public class RetryConfiguration implements Serializable {
     public static final long DEFAULT_INITIAL_RETRY_DELAY_MS = 30L;
     public static final long DEFAULT_MAX_RETRY_DELAY_MS = 5000L;
@@ -50,6 +51,7 @@ public class RetryConfiguration implements Serializable {
         return new Builder();
     }
 
+    /** Builder. */
     public static class Builder {
         private long initialRetryDelayMS = DEFAULT_INITIAL_RETRY_DELAY_MS;
         private long maxRetryDelayMS = DEFAULT_MAX_RETRY_DELAY_MS;

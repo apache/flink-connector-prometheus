@@ -21,16 +21,18 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.GenericTypeInfo;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.function.BiFunction;
 
 /**
- * This source can produce distinct events for each parallel sub-task.
- * The eventGenerator function receives the number of parallel sub-tasks and index of the sub-task it is currently running on.
+ * This source can produce distinct events for each parallel sub-task. The eventGenerator function
+ * receives the number of parallel sub-tasks and index of the sub-task it is currently running on.
  */
-public class ParallelFixedPaceSource<T> extends RichParallelSourceFunction<T> implements ResultTypeQueryable<T> {
+public class ParallelFixedPaceSource<T> extends RichParallelSourceFunction<T>
+        implements ResultTypeQueryable<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ParallelFixedPaceSource.class);
 
@@ -38,14 +40,17 @@ public class ParallelFixedPaceSource<T> extends RichParallelSourceFunction<T> im
     private final Class<T> payloadClass;
 
     /**
-     * Event generator.
-     * Expects the number of parallel sub-tasks, and the index of the current sub-task (0-based)
+     * Event generator. Expects the number of parallel sub-tasks, and the index of the current
+     * sub-task (0-based)
      */
     private final BiFunction<Integer, Integer, T> eventGenerator;
 
     private volatile boolean isRunning = true;
 
-    public ParallelFixedPaceSource(Class<T> payloadClass, BiFunction<Integer, Integer, T> eventGenerator, long pauseMillis) {
+    public ParallelFixedPaceSource(
+            Class<T> payloadClass,
+            BiFunction<Integer, Integer, T> eventGenerator,
+            long pauseMillis) {
         this.payloadClass = payloadClass;
         this.eventGenerator = eventGenerator;
         this.pauseMillis = pauseMillis;

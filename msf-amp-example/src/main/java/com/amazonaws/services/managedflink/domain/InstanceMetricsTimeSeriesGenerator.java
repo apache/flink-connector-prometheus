@@ -17,28 +17,39 @@
 
 package com.amazonaws.services.managedflink.domain;
 
+import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
+
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
-import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.util.function.Supplier;
 
-import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.*;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.DUPLICATE_LABEL_NAMES;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.DUPLICATE_SAMPLES_IN_THE_SAME_REQUEST;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.DUPLICATE_SAMPLE_TIMESTAMPS_IN_THE_SAME_REQUEST;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.ILLEGAL_LABEL_NAME;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.ILLEGAL_METRIC_NAME;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.OUT_OF_ORDER_LABEL_NAMES;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.OUT_OF_ORDER_SAMPLES_ACROSS_TIME_SERIES;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.OUT_OF_ORDER_SAMPLES_IN_THE_SAME_TIME_SERIES;
+import static com.amazonaws.services.managedflink.domain.InstanceMetricsTimeSeriesGenerator.IntroduceErrors.TIMESTAMP_TOO_OLD;
 
 /**
- * This random data generator is able to introduce some errors that should cause
- * Prometheus to reject the data.
+ * This random data generator is able to introduce some errors that should cause Prometheus to
+ * reject the data.
  *
- * LIMITATION: due to the way it generates timestamps, if the interval between subsequent calls to the generator (in millis)
- * is less than the max number of Samples in each generated TimeSeries, timestamps may be out of order in the output
- * stream, and rejected by prometheus
+ * <p>LIMITATION: due to the way it generates timestamps, if the interval between subsequent calls
+ * to the generator (in millis) is less than the max number of Samples in each generated TimeSeries,
+ * timestamps may be out of order in the output stream, and rejected by prometheus
  */
 public class InstanceMetricsTimeSeriesGenerator implements Serializable {
-    private static final Logger LOG = LoggerFactory.getLogger(InstanceMetricsTimeSeriesGenerator.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(InstanceMetricsTimeSeriesGenerator.class);
 
+    /** Types of errors introduced. */
     public enum IntroduceErrors {
         NO_ERROR,
         DUPLICATE_SAMPLE_TIMESTAMPS_IN_THE_SAME_REQUEST,
@@ -58,17 +69,18 @@ public class InstanceMetricsTimeSeriesGenerator implements Serializable {
 
     private volatile Long prevTimeSeriesLastTimestamp = null;
 
-
-    public InstanceMetricsTimeSeriesGenerator(int minNrOfSamples, int maxNrOfSamples, IntroduceErrors introduceErrors) {
+    public InstanceMetricsTimeSeriesGenerator(
+            int minNrOfSamples, int maxNrOfSamples, IntroduceErrors introduceErrors) {
         this.minNrOfSamples = minNrOfSamples;
         this.maxNrOfSamples = maxNrOfSamples;
         this.introduceErrors = introduceErrors;
     }
 
-
     private static PrometheusTimeSeries nextTimeSeries(
-            int minNrOfSamples, int maxNrOfSamples,
-            IntroduceErrors introduceErrors, Long prevRequestTimestamp) {
+            int minNrOfSamples,
+            int maxNrOfSamples,
+            IntroduceErrors introduceErrors,
+            Long prevRequestTimestamp) {
         var builder = PrometheusTimeSeries.builder();
 
         String metricName = (RandomUtils.nextDouble(0, 1) < 0.5) ? "CPU" : "Memory";
@@ -99,8 +111,12 @@ public class InstanceMetricsTimeSeriesGenerator implements Serializable {
         }
 
         long baseTimestamp;
-        if (introduceErrors == OUT_OF_ORDER_SAMPLES_ACROSS_TIME_SERIES && prevRequestTimestamp != null) {
-            baseTimestamp = prevRequestTimestamp - 60_000L; // to generate ouf of order samples, starts 1 min BEFORE the previous request
+        if (introduceErrors == OUT_OF_ORDER_SAMPLES_ACROSS_TIME_SERIES
+                && prevRequestTimestamp != null) {
+            baseTimestamp =
+                    prevRequestTimestamp
+                            - 60_000L; // to generate ouf of order samples, starts 1 min BEFORE the
+            // previous request
         } else if (introduceErrors == TIMESTAMP_TOO_OLD) {
             baseTimestamp = 1L;
         } else {
@@ -119,15 +135,19 @@ public class InstanceMetricsTimeSeriesGenerator implements Serializable {
                 value = prevValue;
                 timestamp = prevSampleTimestamp;
                 LOG.debug("Introducing duplicate sample (timestamp and value)");
-            } else if (introduceErrors == DUPLICATE_SAMPLE_TIMESTAMPS_IN_THE_SAME_REQUEST && (i == 1)) {
+            } else if (introduceErrors == DUPLICATE_SAMPLE_TIMESTAMPS_IN_THE_SAME_REQUEST
+                    && (i == 1)) {
                 // Introduce a duplicate time at the second sample of the timestamp
                 timestamp = prevSampleTimestamp;
                 LOG.debug("Introducing duplicate sample timestamp");
-            } else if (introduceErrors == OUT_OF_ORDER_SAMPLES_IN_THE_SAME_TIME_SERIES && prevSampleTimestamp > 0) {
+            } else if (introduceErrors == OUT_OF_ORDER_SAMPLES_IN_THE_SAME_TIME_SERIES
+                    && prevSampleTimestamp > 0) {
                 timestamp = prevSampleTimestamp - 1; // Force sample timestamp to go backward
                 LOG.debug("Introducing out-of-order sample timestamps");
             } else if (timestamp <= prevSampleTimestamp) {
-                timestamp = prevSampleTimestamp + 1; // Make sure timestamps are always monotonically increasing
+                timestamp =
+                        prevSampleTimestamp
+                                + 1; // Make sure timestamps are always monotonically increasing
             }
             builder.addSample(value, timestamp);
             prevSampleTimestamp = timestamp;
@@ -139,11 +159,18 @@ public class InstanceMetricsTimeSeriesGenerator implements Serializable {
     }
 
     public Supplier<PrometheusTimeSeries> generator() {
-        return (Supplier<PrometheusTimeSeries> & Serializable) () -> {
-            PrometheusTimeSeries timeSeries = nextTimeSeries(minNrOfSamples, maxNrOfSamples, introduceErrors, prevTimeSeriesLastTimestamp);
-            prevTimeSeriesLastTimestamp = timeSeries.getSamples()[timeSeries.getSamples().length - 1].getTimestamp();
-            return timeSeries;
-        };
+        return (Supplier<PrometheusTimeSeries> & Serializable)
+                () -> {
+                    PrometheusTimeSeries timeSeries =
+                            nextTimeSeries(
+                                    minNrOfSamples,
+                                    maxNrOfSamples,
+                                    introduceErrors,
+                                    prevTimeSeriesLastTimestamp);
+                    prevTimeSeriesLastTimestamp =
+                            timeSeries.getSamples()[timeSeries.getSamples().length - 1]
+                                    .getTimestamp();
+                    return timeSeries;
+                };
     }
-
 }

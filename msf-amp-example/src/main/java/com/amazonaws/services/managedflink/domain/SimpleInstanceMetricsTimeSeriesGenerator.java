@@ -17,18 +17,19 @@
 
 package com.amazonaws.services.managedflink.domain;
 
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
+
+import org.apache.commons.lang3.RandomUtils;
 
 import java.io.Serializable;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
- * Very simple dummy TimeSeries generator, generating random `CPU` and `Memory` samples for a given number of instances.
- * <p>
- * Sample timestamp is always the current system time.
- * The value is random, between 0 and 1
+ * Very simple dummy TimeSeries generator, generating random `CPU` and `Memory` samples for a given
+ * number of instances.
+ *
+ * <p>Sample timestamp is always the current system time. The value is random, between 0 and 1
  */
 public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
 
@@ -36,7 +37,8 @@ public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
     private final int minNrOfSamples;
     private final int maxNrOfSamples;
 
-    public SimpleInstanceMetricsTimeSeriesGenerator(int minNrOfSamples, int maxNrOfSamples, int numberOfDummySources) {
+    public SimpleInstanceMetricsTimeSeriesGenerator(
+            int minNrOfSamples, int maxNrOfSamples, int numberOfDummySources) {
         this.numberOfDummySources = numberOfDummySources;
         this.minNrOfSamples = minNrOfSamples;
         this.maxNrOfSamples = maxNrOfSamples;
@@ -50,17 +52,23 @@ public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
         return nextTimeSeries(minNrOfSamples, maxNrOfSamples, 1, 0);
     }
 
-    private PrometheusTimeSeries nextTimeSeries(int minNrOfSamples, int maxNrOfSamples, int numberOfParallelSubTasks, int subTaskIndex) {
+    private PrometheusTimeSeries nextTimeSeries(
+            int minNrOfSamples,
+            int maxNrOfSamples,
+            int numberOfParallelSubTasks,
+            int subTaskIndex) {
         int sourcesPerSubTask = numberOfDummySources / numberOfParallelSubTasks;
-        int dummySourceIndex = sourcesPerSubTask * subTaskIndex + RandomUtils.nextInt(0, sourcesPerSubTask);
+        int dummySourceIndex =
+                sourcesPerSubTask * subTaskIndex + RandomUtils.nextInt(0, sourcesPerSubTask);
         String instanceId = dummySourceId(dummySourceIndex);
 
         int nrOfSamples = RandomUtils.nextInt(minNrOfSamples, maxNrOfSamples + 1);
         String metricName = (RandomUtils.nextDouble(0, 1) < 0.5) ? "CPU" : "Memory";
 
-        PrometheusTimeSeries.Builder builder = PrometheusTimeSeries.builder()
-                .withMetricName(metricName)
-                .addLabel("InstanceId", instanceId);
+        PrometheusTimeSeries.Builder builder =
+                PrometheusTimeSeries.builder()
+                        .withMetricName(metricName)
+                        .addLabel("InstanceId", instanceId);
         for (int i = 0; i < nrOfSamples; i++) {
             double value = RandomUtils.nextDouble(0, 1);
             builder.addSample(value, System.currentTimeMillis());
@@ -68,12 +76,18 @@ public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
         return builder.build();
     }
 
-
     public Supplier<PrometheusTimeSeries> generator() {
-        return (Supplier<PrometheusTimeSeries> & Serializable) () -> nextTimeSeries(minNrOfSamples, maxNrOfSamples);
+        return (Supplier<PrometheusTimeSeries> & Serializable)
+                () -> nextTimeSeries(minNrOfSamples, maxNrOfSamples);
     }
 
     public BiFunction<Integer, Integer, PrometheusTimeSeries> parallelGenerator() {
-        return (BiFunction<Integer, Integer, PrometheusTimeSeries> & Serializable) (numberOfParallelSubTasks, subTaskIndex) -> nextTimeSeries(minNrOfSamples, maxNrOfSamples, numberOfParallelSubTasks, subTaskIndex);
+        return (BiFunction<Integer, Integer, PrometheusTimeSeries> & Serializable)
+                (numberOfParallelSubTasks, subTaskIndex) ->
+                        nextTimeSeries(
+                                minNrOfSamples,
+                                maxNrOfSamples,
+                                numberOfParallelSubTasks,
+                                subTaskIndex);
     }
 }

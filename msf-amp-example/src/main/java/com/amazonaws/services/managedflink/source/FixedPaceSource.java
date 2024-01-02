@@ -25,6 +25,7 @@ import org.apache.flink.util.Preconditions;
 
 import java.util.function.Supplier;
 
+/** Simple data generator, generating records with a fixed delay. */
 public class FixedPaceSource<T> implements SourceFunction<T>, ResultTypeQueryable<T> {
     private volatile boolean isRunning = true;
 
@@ -33,7 +34,10 @@ public class FixedPaceSource<T> implements SourceFunction<T>, ResultTypeQueryabl
     private final Class<T> payloadClass;
 
     public FixedPaceSource(Class<T> payloadClass, Supplier<T> eventGenerator, long pauseMillis) {
-        Preconditions.checkArgument(pauseMillis > 0, "Pause between time-series must be > 0"); // If zero, the source may generate duplicate timestamps
+        Preconditions.checkArgument(
+                pauseMillis > 0,
+                "Pause between time-series must be > 0"); // If zero, the source may generate
+        // duplicate timestamps
         this.eventGenerator = eventGenerator;
         this.pauseMillis = pauseMillis;
         this.payloadClass = payloadClass;

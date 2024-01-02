@@ -20,6 +20,7 @@ package org.apache.flink.connector.prometheus.sink;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
 
+/** Wraps all counter metrics in a single class. */
 public class SinkCounters {
     private final Counter[] counters;
 
@@ -43,14 +44,17 @@ public class SinkCounters {
         return new SinkCounters(counters);
     }
 
+    /** Create an instance with all counter metrics. */
     public enum SinkCounter {
-        // Total number of Samples that were dropped because of not being retriable errors in Prometheus
+        // Total number of Samples that were dropped because of not being retriable errors in
+        // Prometheus
         NUM_SAMPLES_NON_RETRIABLE_DROPPED("numSamplesNonRetriableDropped"),
 
         // Number of Samples dropped after reaching retry limit on retriable errors
         NUM_SAMPLES_RETRY_LIMIT_DROPPED("numSamplesRetryLimitDropped"),
 
-        // Total number of Samples dropped due to any reasons: retriable errors reaching retry limit, non-retriable errors, unexpected IO errors
+        // Total number of Samples dropped due to any reasons: retriable errors reaching retry
+        // limit, non-retriable errors, unexpected IO errors
         NUM_SAMPLES_DROPPED("numSamplesDropped"),
 
         // Number of Samples successfully written to Prometheus

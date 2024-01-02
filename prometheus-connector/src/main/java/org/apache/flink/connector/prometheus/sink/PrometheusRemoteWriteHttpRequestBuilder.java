@@ -25,28 +25,30 @@ import org.apache.hc.core5.http.HttpHeaders;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Builds the POST request to the Remote-Write endpoint for a given binary payload
- */
+/** Builds the POST request to the Remote-Write endpoint for a given binary payload. */
 public class PrometheusRemoteWriteHttpRequestBuilder {
 
     private static final ContentType CONTENT_TYPE = ContentType.create("application/x-protobuf");
 
-    private static final Map<String, String> FIXED_HEADER = Map.of(
-            HttpHeaders.CONTENT_ENCODING, "snappy",
-            "X-Prometheus-Remote-Write-Version", "0.1.0",
-            HttpHeaders.USER_AGENT, "Flink-Prometheus/0.1.0" // TODO Prometheus requires a user-agent header. What should we use?
-    );
+    private static final Map<String, String> FIXED_HEADER =
+            Map.of(
+                    HttpHeaders.CONTENT_ENCODING,
+                    "snappy",
+                    "X-Prometheus-Remote-Write-Version",
+                    "0.1.0",
+                    HttpHeaders.USER_AGENT,
+                    "Flink-Prometheus/0.1.0" // TODO Prometheus requires a user-agent header. What
+                    // should we use?
+                    );
 
     private final String prometheusRemoteWriteUrl;
     private final PrometheusRequestSigner requestSigner;
 
-
-    public PrometheusRemoteWriteHttpRequestBuilder(String prometheusRemoteWriteUrl, PrometheusRequestSigner requestSigner) {
+    public PrometheusRemoteWriteHttpRequestBuilder(
+            String prometheusRemoteWriteUrl, PrometheusRequestSigner requestSigner) {
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.requestSigner = requestSigner;
     }
-
 
     public SimpleHttpRequest buildHttpRequest(byte[] httpRequestBody) {
         Map<String, String> headers = new HashMap<>(FIXED_HEADER);
@@ -54,9 +56,10 @@ public class PrometheusRemoteWriteHttpRequestBuilder {
             requestSigner.addSignatureHeaders(headers, httpRequestBody);
         }
 
-        var builder = SimpleRequestBuilder.post()
-                .setUri(prometheusRemoteWriteUrl)
-                .setBody(httpRequestBody, CONTENT_TYPE);
+        var builder =
+                SimpleRequestBuilder.post()
+                        .setUri(prometheusRemoteWriteUrl)
+                        .setBody(httpRequestBody, CONTENT_TYPE);
 
         for (Map.Entry<String, String> header : headers.entrySet()) {
             builder.addHeader(header.getKey(), header.getValue());

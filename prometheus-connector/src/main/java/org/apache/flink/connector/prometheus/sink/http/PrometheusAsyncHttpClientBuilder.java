@@ -19,6 +19,7 @@ package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.flink.connector.prometheus.sink.SinkCounters;
 import org.apache.flink.util.Preconditions;
+
 import org.apache.hc.client5.http.config.TlsConfig;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
@@ -30,6 +31,7 @@ import org.apache.hc.core5.util.Timeout;
 import java.io.Serializable;
 import java.util.Optional;
 
+/** Builder for async http client. */
 public class PrometheusAsyncHttpClientBuilder implements Serializable {
     public static final int DEFAULT_SOCKET_TIMEOUT_MS = 5000;
 
@@ -45,30 +47,43 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
         return this;
     }
 
-    // FIXME pass counters
     public CloseableHttpAsyncClient buildAndStartClient(SinkCounters counters) {
-        int actualSocketTimeoutMs = Optional.ofNullable(socketTimeoutMs).orElse(DEFAULT_SOCKET_TIMEOUT_MS);
+        int actualSocketTimeoutMs =
+                Optional.ofNullable(socketTimeoutMs).orElse(DEFAULT_SOCKET_TIMEOUT_MS);
 
-        Preconditions.checkArgument(retryConfiguration.getInitialRetryDelayMS() >= 0, "Initial retry delay must be >= 0");
-        Preconditions.checkArgument(retryConfiguration.getMaxRetryDelayMS() >= retryConfiguration.getInitialRetryDelayMS(), "Max retry delay must be >= initial retry delay");
-        Preconditions.checkArgument(retryConfiguration.getMaxRetryCount() >= 0, "Max retry count must be >= 0");
+        Preconditions.checkArgument(
+                retryConfiguration.getInitialRetryDelayMS() >= 0,
+                "Initial retry delay must be >= 0");
+        Preconditions.checkArgument(
+                retryConfiguration.getMaxRetryDelayMS()
+                        >= retryConfiguration.getInitialRetryDelayMS(),
+                "Max retry delay must be >= initial retry delay");
+        Preconditions.checkArgument(
+                retryConfiguration.getMaxRetryCount() >= 0, "Max retry count must be >= 0");
         Preconditions.checkArgument(actualSocketTimeoutMs >= 0, "Socket timeout must be >= 0");
 
+        final IOReactorConfig ioReactorConfig =
+                IOReactorConfig.custom()
+                        .setIoThreadCount(1) // Always one thread
+                        .setSoTimeout(Timeout.ofMilliseconds(actualSocketTimeoutMs))
+                        .build();
 
-        final IOReactorConfig ioReactorConfig = IOReactorConfig.custom()
-                .setIoThreadCount(1) // Always one thread
-                .setSoTimeout(Timeout.ofMilliseconds(actualSocketTimeoutMs))
-                .build();
-
-        var client = HttpAsyncClients.custom()
-                .setConnectionManager(PoolingAsyncClientConnectionManagerBuilder.create()
-                        .setDefaultTlsConfig(TlsConfig.custom()
-                                .setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_1) // Force HTTP 1.1
-                                .build())
-                        .build())
-                .setIOReactorConfig(ioReactorConfig)
-                .setRetryStrategy(new RemoteWriteRetryStrategy(retryConfiguration, counters))
-                .build();
+        var client =
+                HttpAsyncClients.custom()
+                        .setConnectionManager(
+                                PoolingAsyncClientConnectionManagerBuilder.create()
+                                        .setDefaultTlsConfig(
+                                                TlsConfig.custom()
+                                                        .setVersionPolicy(
+                                                                HttpVersionPolicy
+                                                                        .FORCE_HTTP_1) // Force HTTP
+                                                        // 1.1
+                                                        .build())
+                                        .build())
+                        .setIOReactorConfig(ioReactorConfig)
+                        .setRetryStrategy(
+                                new RemoteWriteRetryStrategy(retryConfiguration, counters))
+                        .build();
 
         client.start();
         return client;

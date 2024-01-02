@@ -19,6 +19,7 @@ package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.api.connector.sink2.SinkWriter;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,24 +28,26 @@ class PrometheusTimeSeriesConverterTest {
 
     private PrometheusTimeSeriesConverter sut = new PrometheusTimeSeriesConverter();
 
-    private SinkWriter.Context dummyContext = new SinkWriter.Context() {
-        @Override
-        public long currentWatermark() {
-            return 0L;
-        }
+    private SinkWriter.Context dummyContext =
+            new SinkWriter.Context() {
+                @Override
+                public long currentWatermark() {
+                    return 0L;
+                }
 
-        @Override
-        public Long timestamp() {
-            return null;
-        }
-    };
+                @Override
+                public Long timestamp() {
+                    return null;
+                }
+            };
 
     @Test
     public void testMetricNameLabel() {
-        var input = PrometheusTimeSeries.builder()
-                .withMetricName("metric-1")
-                .addSample(42.0, 1L)
-                .build();
+        var input =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric-1")
+                        .addSample(42.0, 1L)
+                        .build();
 
         var requestEntry = sut.apply(input, dummyContext);
 
@@ -57,12 +60,13 @@ class PrometheusTimeSeriesConverterTest {
 
     @Test
     public void testAdditionalLabels() {
-        var input = PrometheusTimeSeries.builder()
-                .withMetricName("metric-1")
-                .addLabel("dimension-A", "value-A")
-                .addLabel("dimension-B", "value-B")
-                .addSample(42, 1L)
-                .build();
+        var input =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric-1")
+                        .addLabel("dimension-A", "value-A")
+                        .addLabel("dimension-B", "value-B")
+                        .addSample(42, 1L)
+                        .build();
 
         var requestEntry = sut.apply(input, dummyContext);
 
@@ -79,11 +83,12 @@ class PrometheusTimeSeriesConverterTest {
 
     @Test
     public void testSamples() {
-        var input = PrometheusTimeSeries.builder()
-                .withMetricName("metric-1")
-                .addSample(42.0, 1L)
-                .addSample(3.14, 2L)
-                .build();
+        var input =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric-1")
+                        .addSample(42.0, 1L)
+                        .addSample(3.14, 2L)
+                        .build();
 
         var requestEntry = sut.apply(input, dummyContext);
 

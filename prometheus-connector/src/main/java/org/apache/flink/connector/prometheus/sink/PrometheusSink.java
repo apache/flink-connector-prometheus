@@ -21,13 +21,14 @@ import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
-import org.apache.flink.connector.prometheus.sink.http.RetryConfiguration;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 
 import java.util.Collection;
 
+/** Sink implementation accepting {@link PrometheusTimeSeries} as inputs. */
 public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> {
     private final String prometheusRemoteWriteUrl;
     private final PrometheusAsyncHttpClientBuilder clientBuilder;
@@ -53,7 +54,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 maxBatchSizeInSamples, // maxBatchSizeInBytes,
                 maxTimeInBufferMS,
                 maxRecordSizeInSamples // maxRecordSizeInBytes
-        );
+                );
         this.maxBatchSizeInSamples = maxBatchSizeInSamples;
         this.requestSigner = requestSigner;
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
@@ -65,7 +66,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     }
 
     @Override
-    public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>> createWriter(InitContext initContext) {
+    public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
+            createWriter(InitContext initContext) {
         SinkCounters counters = SinkCounters.buildSinkCounters(initContext.metricGroup());
         CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(counters);
 
@@ -83,7 +85,10 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     }
 
     @Override
-    public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>> restoreWriter(InitContext initContext, Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
+    public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
+            restoreWriter(
+                    InitContext initContext,
+                    Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
         SinkCounters counters = SinkCounters.buildSinkCounters(initContext.metricGroup());
         CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(counters);
         return new PrometheusSinkWriter(
@@ -105,7 +110,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     }
 
     @Override
-    public SimpleVersionedSerializer<BufferedRequestState<Types.TimeSeries>> getWriterStateSerializer() {
+    public SimpleVersionedSerializer<BufferedRequestState<Types.TimeSeries>>
+            getWriterStateSerializer() {
         return new PrometheusStateSerializer();
     }
 }

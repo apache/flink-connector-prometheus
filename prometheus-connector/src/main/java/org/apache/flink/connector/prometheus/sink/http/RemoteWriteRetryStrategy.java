@@ -18,6 +18,7 @@
 package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.flink.connector.prometheus.sink.SinkCounters;
+
 import org.apache.hc.client5.http.HttpRequestRetryStrategy;
 import org.apache.hc.core5.http.HttpRequest;
 import org.apache.hc.core5.http.HttpResponse;
@@ -27,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLException;
+
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.ConnectException;
@@ -34,15 +36,17 @@ import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 import java.util.List;
 
+/** Retry strategy for the http client. */
 public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteWriteRetryStrategy.class);
 
-    private static final List<Class<? extends IOException>> NON_RETRIABLE_EXCEPTIONS = List.of(
-            InterruptedIOException.class,
-            UnknownHostException.class,
-            ConnectException.class,
-            NoRouteToHostException.class,
-            SSLException.class);
+    private static final List<Class<? extends IOException>> NON_RETRIABLE_EXCEPTIONS =
+            List.of(
+                    InterruptedIOException.class,
+                    UnknownHostException.class,
+                    ConnectException.class,
+                    NoRouteToHostException.class,
+                    SSLException.class);
 
     private final long initialRetryDelayMs;
     private final long maxRetryDelayMs;
@@ -58,24 +62,38 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
     }
 
     @Override
-    public boolean retryRequest(HttpRequest httpRequest, IOException e, int execCount, HttpContext httpContext) {
+    public boolean retryRequest(
+            HttpRequest httpRequest, IOException e, int execCount, HttpContext httpContext) {
         // Retry on any IOException except those considered non-retriable
-        var retry = (execCount <= maxRetryCount) && !(NON_RETRIABLE_EXCEPTIONS.contains(e.getClass()));
-        LOG.debug("{} retry on {}, at execution {}", (retry) ? "DO" : "DO NOT", e.getClass(), execCount);
+        var retry =
+                (execCount <= maxRetryCount) && !(NON_RETRIABLE_EXCEPTIONS.contains(e.getClass()));
+        LOG.debug(
+                "{} retry on {}, at execution {}",
+                (retry) ? "DO" : "DO NOT",
+                e.getClass(),
+                execCount);
         countRetry(retry);
         return retry;
     }
 
     @Override
     public boolean retryRequest(HttpResponse httpResponse, int execCount, HttpContext httpContext) {
-        var retry = (execCount <= maxRetryCount) && RemoteWriteResponseClassifier.isRetriableErrorResponse(httpResponse);
-        LOG.debug("{} retry on response {} {}, at execution {}", (retry) ? "DO" : "DO NOT", httpResponse.getCode(), httpResponse.getReasonPhrase(), execCount);
+        var retry =
+                (execCount <= maxRetryCount)
+                        && RemoteWriteResponseClassifier.isRetriableErrorResponse(httpResponse);
+        LOG.debug(
+                "{} retry on response {} {}, at execution {}",
+                (retry) ? "DO" : "DO NOT",
+                httpResponse.getCode(),
+                httpResponse.getReasonPhrase(),
+                execCount);
         countRetry(retry);
         return retry;
     }
 
     @Override
-    public TimeValue getRetryInterval(HttpResponse httpResponse, int execCount, HttpContext httpContext) {
+    public TimeValue getRetryInterval(
+            HttpResponse httpResponse, int execCount, HttpContext httpContext) {
         long calculatedDelay = initialRetryDelayMs << (execCount - 1);
         return TimeValue.ofMilliseconds(Math.min(calculatedDelay, maxRetryDelayMs));
     }

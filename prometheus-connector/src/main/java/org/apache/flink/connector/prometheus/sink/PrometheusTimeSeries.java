@@ -26,12 +26,13 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Sink input, containing a single TimeSeries: a list of Labels and a list of Samples.
- * <p>
- * metricName is mapped in Prometheus to the value of the mandatory label named '__name__' labels.
- * The other labels, as key/value, are appended after the '__name__' label.
+ * Pojo used as sink input, containing a single TimeSeries: a list of Labels and a list of Samples.
+ *
+ * <p>metricName is mapped in Prometheus to the value of the mandatory label named '__name__'
+ * labels. The other labels, as key/value, are appended after the '__name__' label.
  */
 public class PrometheusTimeSeries implements Serializable {
+    /** A single Label. */
     public static class Label implements Serializable {
         private final String name;
         private final String value;
@@ -51,10 +52,17 @@ public class PrometheusTimeSeries implements Serializable {
 
         @Override
         public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
             Label label = (Label) o;
-            return new EqualsBuilder().append(name, label.name).append(value, label.value).isEquals();
+            return new EqualsBuilder()
+                    .append(name, label.name)
+                    .append(value, label.value)
+                    .isEquals();
         }
 
         @Override
@@ -63,10 +71,10 @@ public class PrometheusTimeSeries implements Serializable {
         }
     }
 
+    /** A single Sample. */
     public static class Sample implements Serializable {
         private final double value;
         private final long timestamp;
-
 
         public Sample(double value, long timestamp) {
             this.value = value;
@@ -109,9 +117,12 @@ public class PrometheusTimeSeries implements Serializable {
     }
 
     public static Builder builderFrom(PrometheusTimeSeries other) {
-        return new Builder(Arrays.asList(other.labels), Arrays.asList(other.samples), other.metricName);
+        return new Builder(
+                Arrays.asList(other.labels), Arrays.asList(other.samples), other.metricName);
     }
 
+
+    /** Builder for sink input pojo instance. */
     public static final class Builder {
         private List<Label> labels = new ArrayList<>();
         private List<Sample> samples = new ArrayList<>();
@@ -123,8 +134,7 @@ public class PrometheusTimeSeries implements Serializable {
             this.metricName = metricName;
         }
 
-        private Builder() {
-        }
+        private Builder() {}
 
         public Builder withMetricName(String metricName) {
             this.metricName = metricName;

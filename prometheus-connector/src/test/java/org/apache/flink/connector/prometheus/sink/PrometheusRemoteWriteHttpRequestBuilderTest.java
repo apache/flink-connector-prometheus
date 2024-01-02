@@ -24,44 +24,53 @@ import org.mockito.ArgumentCaptor;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class PrometheusRemoteWriteHttpRequestBuilderTest {
 
     private static final String ENDPOINT = "/anything";
-    private static final byte[] REQUEST_BODY = {(byte)0x01};
+    private static final byte[] REQUEST_BODY = {(byte) 0x01};
 
     @Test
     void shouldAddContentEncodingHeader() {
-        PrometheusRemoteWriteHttpRequestBuilder sut = new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
+        PrometheusRemoteWriteHttpRequestBuilder sut =
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
         var request = sut.buildHttpRequest(REQUEST_BODY);
-        assertEquals  ("snappy", request.getHeaders(HttpHeaders.CONTENT_ENCODING)[0].getValue());
+        assertEquals("snappy", request.getHeaders(HttpHeaders.CONTENT_ENCODING)[0].getValue());
     }
 
     @Test
     void shouldAddPrometheusRemoteWriteVersionHeader() {
-        PrometheusRemoteWriteHttpRequestBuilder sut = new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
+        PrometheusRemoteWriteHttpRequestBuilder sut =
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
         var request = sut.buildHttpRequest(REQUEST_BODY);
-        assertEquals  ("0.1.0", request.getHeaders("X-Prometheus-Remote-Write-Version")[0].getValue());
+        assertEquals(
+                "0.1.0", request.getHeaders("X-Prometheus-Remote-Write-Version")[0].getValue());
     }
 
     @Test
     void shouldAddUserAgent() {
-        PrometheusRemoteWriteHttpRequestBuilder sut = new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
+        PrometheusRemoteWriteHttpRequestBuilder sut =
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
         var request = sut.buildHttpRequest(REQUEST_BODY);
-        assertEquals(1,request.getHeaders(HttpHeaders.USER_AGENT).length);
+        assertEquals(1, request.getHeaders(HttpHeaders.USER_AGENT).length);
     }
 
     @Test
     void shouldInvokeRequestSignerPassingAMutableMap() {
         PrometheusRequestSigner mockSigner = mock(PrometheusRequestSigner.class);
-        PrometheusRemoteWriteHttpRequestBuilder sut = new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, mockSigner);
+        PrometheusRemoteWriteHttpRequestBuilder sut =
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, mockSigner);
 
         sut.buildHttpRequest(REQUEST_BODY);
 
-        ArgumentCaptor<Map<String,String>> headerMapCaptor = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Map<String, String>> headerMapCaptor = ArgumentCaptor.forClass(Map.class);
         verify(mockSigner).addSignatureHeaders(headerMapCaptor.capture(), eq(REQUEST_BODY));
 
-        headerMapCaptor.getValue().put("foo", "bar"); // Check if the map passed to the signer is mutable
+        headerMapCaptor
+                .getValue()
+                .put("foo", "bar"); // Check if the map passed to the signer is mutable
     }
 }

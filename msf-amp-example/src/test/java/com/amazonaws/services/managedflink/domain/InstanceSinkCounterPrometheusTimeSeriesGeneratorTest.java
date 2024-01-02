@@ -17,11 +17,16 @@
 
 package com.amazonaws.services.managedflink.domain;
 
-
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
+
 import org.junit.jupiter.api.Test;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,9 +35,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void duplicateSampleTimestampInSameTimeSeries() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.DUPLICATE_SAMPLE_TIMESTAMPS_IN_THE_SAME_REQUEST)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .DUPLICATE_SAMPLE_TIMESTAMPS_IN_THE_SAME_REQUEST)
+                        .generator();
 
         var timeSeries = generator.get();
 
@@ -51,9 +60,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void duplicateSampleInSameTimeSeries() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.DUPLICATE_SAMPLES_IN_THE_SAME_REQUEST)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .DUPLICATE_SAMPLES_IN_THE_SAME_REQUEST)
+                        .generator();
 
         var timeSeries = generator.get();
 
@@ -74,9 +87,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void outOfOrderSamplesInSameTimeSeries() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.OUT_OF_ORDER_SAMPLES_IN_THE_SAME_TIME_SERIES)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .OUT_OF_ORDER_SAMPLES_IN_THE_SAME_TIME_SERIES)
+                        .generator();
 
         var timeSeries = generator.get();
         Long prevSampleTimestamp = null;
@@ -94,9 +111,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void outOfOrderSamplesAcrossTimeSeries() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.OUT_OF_ORDER_SAMPLES_ACROSS_TIME_SERIES)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .OUT_OF_ORDER_SAMPLES_ACROSS_TIME_SERIES)
+                        .generator();
 
         List<PrometheusTimeSeries> timeSeriesList = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
@@ -120,9 +141,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void duplicateLabelName() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.DUPLICATE_LABEL_NAMES)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .DUPLICATE_LABEL_NAMES)
+                        .generator();
 
         var timeSeries = generator.get();
 
@@ -141,9 +166,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void outOfOrderLabelNames() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.OUT_OF_ORDER_LABEL_NAMES)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .OUT_OF_ORDER_LABEL_NAMES)
+                        .generator();
 
         var timeSeries = generator.get();
 
@@ -162,9 +191,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void illegalLabelName() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.ILLEGAL_LABEL_NAME)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .ILLEGAL_LABEL_NAME)
+                        .generator();
 
         var timeSeries = generator.get();
         boolean expectedError = false;
@@ -181,9 +214,13 @@ class InstanceSinkCounterPrometheusTimeSeriesGeneratorTest {
 
     @Test
     public void illegalMetricName() {
-        var generator = new InstanceMetricsTimeSeriesGenerator(4, 4,
-                InstanceMetricsTimeSeriesGenerator.IntroduceErrors.ILLEGAL_METRIC_NAME)
-                .generator();
+        var generator =
+                new InstanceMetricsTimeSeriesGenerator(
+                                4,
+                                4,
+                                InstanceMetricsTimeSeriesGenerator.IntroduceErrors
+                                        .ILLEGAL_METRIC_NAME)
+                        .generator();
 
         var timeSeries = generator.get();
 

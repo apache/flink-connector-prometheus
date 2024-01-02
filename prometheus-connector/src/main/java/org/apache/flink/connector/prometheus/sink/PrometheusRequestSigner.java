@@ -22,19 +22,19 @@ import java.util.Map;
 
 /**
  * Interface for a request signer, specific of the Prometheus implementation.
- * <p>
- * A request signer implementation can generate additional Http request headers, based on the existing headers and the
- * request body.
+ *
+ * <p>A request signer implementation can generate additional Http request headers, based on the
+ * existing headers and the request body.
  */
 public interface PrometheusRequestSigner extends Serializable {
 
     /**
-     * Add to the existing http request headers any additional header required by the specific Prometheus implementation
-     * for signing.
+     * Add to the existing http request headers any additional header required by the specific
+     * Prometheus implementation for signing.
      *
-     * @param requestHeaders original Http request headers. For efficiency, the implementation is expected to modify the
-     *                       Map in place. The Map is expected to be mutable.
-     * @param requestBody    request body, already compressed.
+     * @param requestHeaders original Http request headers. For efficiency, the implementation is
+     *     expected to modify the Map in place. The Map is expected to be mutable.
+     * @param requestBody request body, already compressed.
      */
     void addSignatureHeaders(Map<String, String> requestHeaders, byte[] requestBody);
 }

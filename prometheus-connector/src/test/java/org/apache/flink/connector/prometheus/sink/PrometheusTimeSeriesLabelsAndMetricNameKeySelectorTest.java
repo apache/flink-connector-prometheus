@@ -24,72 +24,76 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 class PrometheusTimeSeriesLabelsAndMetricNameKeySelectorTest {
 
-    private PrometheusTimeSeriesLabelsAndMetricNameKeySelector selector = new PrometheusTimeSeriesLabelsAndMetricNameKeySelector();
-
+    private PrometheusTimeSeriesLabelsAndMetricNameKeySelector selector =
+            new PrometheusTimeSeriesLabelsAndMetricNameKeySelector();
 
     @Test
     void timeSeriesWithSameLabelsAndMetricNameShouldHaveSameKey() throws Exception {
-        PrometheusTimeSeries ts1 = PrometheusTimeSeries.builder()
-                .withMetricName("metric1")
-                .addLabel("label1", "value1")
-                .addLabel("label2", "value2")
-                .addSample(42, 1L)
-                .addSample(3.14, 2L)
-                .build();
+        PrometheusTimeSeries ts1 =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric1")
+                        .addLabel("label1", "value1")
+                        .addLabel("label2", "value2")
+                        .addSample(42, 1L)
+                        .addSample(3.14, 2L)
+                        .build();
 
-        PrometheusTimeSeries ts2 = PrometheusTimeSeries.builder()
-                .withMetricName("metric1")
-                .addLabel("label1", "value1")
-                .addLabel("label2", "value2")
-                .addSample(57, 1L)
-                .addSample(123, 2L)
-                .build();
+        PrometheusTimeSeries ts2 =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric1")
+                        .addLabel("label1", "value1")
+                        .addLabel("label2", "value2")
+                        .addSample(57, 1L)
+                        .addSample(123, 2L)
+                        .build();
 
         assertEquals(selector.getKey(ts1), selector.getKey(ts2));
     }
 
-
     @Test
-    void timeSeriesWithDifferentLabelValuesAndSameMetricNameShouldHaveDifferentKey() throws Exception {
-        PrometheusTimeSeries ts1 = PrometheusTimeSeries.builder()
-                .withMetricName("metric1")
-                .addLabel("label1", "valueX")
-                .addLabel("label2", "valueY")
-                .addSample(42, 1L)
-                .addSample(3.14, 2L)
-                .build();
+    void timeSeriesWithDifferentLabelValuesAndSameMetricNameShouldHaveDifferentKey()
+            throws Exception {
+        PrometheusTimeSeries ts1 =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric1")
+                        .addLabel("label1", "valueX")
+                        .addLabel("label2", "valueY")
+                        .addSample(42, 1L)
+                        .addSample(3.14, 2L)
+                        .build();
 
-        PrometheusTimeSeries ts2 = PrometheusTimeSeries.builder()
-                .withMetricName("metric1")
-                .addLabel("label1", "value1")
-                .addLabel("label2", "value2")
-                .addSample(42, 1L)
-                .addSample(3.14, 2L)
-                .build();
+        PrometheusTimeSeries ts2 =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric1")
+                        .addLabel("label1", "value1")
+                        .addLabel("label2", "value2")
+                        .addSample(42, 1L)
+                        .addSample(3.14, 2L)
+                        .build();
 
         assertNotEquals(selector.getKey(ts1), selector.getKey(ts2));
     }
 
     @Test
     void timeSeriesWithSameLabelsAndDifferentMetricNameShouldHaveDifferentKey() throws Exception {
-        PrometheusTimeSeries ts1 = PrometheusTimeSeries.builder()
-                .withMetricName("metric1")
-                .addLabel("label1", "value1")
-                .addLabel("label2", "value2")
-                .addSample(42, 1L)
-                .addSample(3.14, 2L)
-                .build();
+        PrometheusTimeSeries ts1 =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric1")
+                        .addLabel("label1", "value1")
+                        .addLabel("label2", "value2")
+                        .addSample(42, 1L)
+                        .addSample(3.14, 2L)
+                        .build();
 
-        PrometheusTimeSeries ts2 = PrometheusTimeSeries.builder()
-                .withMetricName("metric2")
-                .addLabel("label1", "value1")
-                .addLabel("label2", "value2")
-                .addSample(42, 1L)
-                .addSample(3.14, 2L)
-                .build();
+        PrometheusTimeSeries ts2 =
+                PrometheusTimeSeries.builder()
+                        .withMetricName("metric2")
+                        .addLabel("label1", "value1")
+                        .addLabel("label2", "value2")
+                        .addSample(42, 1L)
+                        .addSample(3.14, 2L)
+                        .build();
 
         assertNotEquals(selector.getKey(ts1), selector.getKey(ts2));
     }
-
-
 }

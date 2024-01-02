@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/** Test utilities. */
 public class AsyncHttpClientTestUtils {
 
     public static FutureCallback<SimpleHttpResponse> statusCodeAsserter(int expectedStatusCode) {
@@ -31,7 +32,10 @@ public class AsyncHttpClientTestUtils {
         return new FutureCallback<SimpleHttpResponse>() {
             @Override
             public void completed(SimpleHttpResponse response) {
-                assertEquals(expectedStatusCode, response.getCode(), "Request should return status code " + expectedStatusCode);
+                assertEquals(
+                        expectedStatusCode,
+                        response.getCode(),
+                        "Request should return status code " + expectedStatusCode);
             }
 
             @Override
@@ -50,7 +54,10 @@ public class AsyncHttpClientTestUtils {
         return new FutureCallback<>() {
             @Override
             public void completed(SimpleHttpResponse simpleHttpResponse) {
-                logger.info("Request Success: {},{}", simpleHttpResponse.getCode(), simpleHttpResponse.getReasonPhrase());
+                logger.info(
+                        "Request Success: {},{}",
+                        simpleHttpResponse.getCode(),
+                        simpleHttpResponse.getReasonPhrase());
             }
 
             @Override
@@ -65,4 +72,3 @@ public class AsyncHttpClientTestUtils {
         };
     }
 }
-

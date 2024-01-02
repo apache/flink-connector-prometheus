@@ -19,6 +19,7 @@ package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.hc.core5.http.HttpResponse;
 
+/** Classify http responses based on the status code. */
 public class RemoteWriteResponseClassifier {
     public static boolean isRetriableErrorResponse(HttpResponse response) {
         int statusCode = response.getCode();

@@ -17,8 +17,9 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
-import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import org.apache.flink.connector.prometheus.sink.http.RetryConfiguration;
+
+import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.async.methods.SimpleRequestBuilder;
 import org.apache.hc.core5.http.ContentType;
@@ -26,8 +27,10 @@ import org.apache.hc.core5.net.URIBuilder;
 
 import java.net.URISyntaxException;
 
+/** Utilities for WireMock integration tests. */
 public class WireMockTestUtils {
-    public static String buildRequestUrl(WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException {
+    public static String buildRequestUrl(WireMockRuntimeInfo wmRuntimeInfo)
+            throws URISyntaxException {
         return new URIBuilder(wmRuntimeInfo.getHttpBaseUrl())
                 .setPath("/remote_write")
                 .setPort(wmRuntimeInfo.getHttpPort())
