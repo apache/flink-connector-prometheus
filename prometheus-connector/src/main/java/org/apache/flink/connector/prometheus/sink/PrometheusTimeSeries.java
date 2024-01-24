@@ -121,7 +121,6 @@ public class PrometheusTimeSeries implements Serializable {
                 Arrays.asList(other.labels), Arrays.asList(other.samples), other.metricName);
     }
 
-
     /** Builder for sink input pojo instance. */
     public static final class Builder {
         private List<Label> labels = new ArrayList<>();
