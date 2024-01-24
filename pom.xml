@@ -22,6 +22,12 @@ under the License.
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-connector-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
     <groupId>org.apache.flink</groupId>
     <artifactId>flink-prometheus</artifactId>
     <version>1.0.0-SNAPSHOT</version>
@@ -44,7 +50,7 @@ under the License.
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <flink.version>1.16.0</flink.version>
+        <flink.version>1.17.0</flink.version>
         <protobuf.version>3.22.2</protobuf.version>
         <apache.httpclient.version>5.2.1</apache.httpclient.version>
         <log4j.version>2.17.1</log4j.version>
@@ -66,6 +72,13 @@ under the License.
                 <version>1.0.2</version>
                 <configuration>
                     <indentSize>4</indentSize>
+                    <validationSets>
+                        <validationSet>
+                            <excludes>
+                                <exclude>**/dependency-reduced-pom.xml</exclude>
+                            </excludes>
+                        </validationSet>
+                    </validationSets>
                 </configuration>
                 <executions>
                     <execution>
