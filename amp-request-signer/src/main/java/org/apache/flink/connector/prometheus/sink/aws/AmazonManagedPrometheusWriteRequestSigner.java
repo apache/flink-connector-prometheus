@@ -30,7 +30,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
 
-/** Sing a Remote-Write request to Amazon Managed Service for Prometheus (AMP). */
+/** Sign a Remote-Write request to Amazon Managed Service for Prometheus (AMP). */
 public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequestSigner {
 
     private final URL remoteWriteUrl;
@@ -43,13 +43,17 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
      * @param awsRegion Region of the AMP workspace
      */
     public AmazonManagedPrometheusWriteRequestSigner(String remoteWriteUrl, String awsRegion) {
-        Preconditions.checkArgument(StringUtils.isNotBlank(awsRegion));
-        Preconditions.checkNotNull(remoteWriteUrl);
+        Preconditions.checkArgument(
+                StringUtils.isNotBlank(awsRegion), "Missing or blank AMP workspace region");
+        Preconditions.checkNotNull(
+                StringUtils.isNotBlank(remoteWriteUrl),
+                "Missing or blank AMP workspace remote-write URL");
         this.awsRegion = awsRegion;
         try {
             this.remoteWriteUrl = new URL(remoteWriteUrl);
         } catch (MalformedURLException e) {
-            throw new IllegalArgumentException("Invalid Remote-Write URL: " + remoteWriteUrl, e);
+            throw new IllegalArgumentException(
+                    "Invalid AMP remote-write URL: " + remoteWriteUrl, e);
         }
     }
 
