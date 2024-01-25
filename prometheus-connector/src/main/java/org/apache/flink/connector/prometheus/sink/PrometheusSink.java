@@ -33,8 +33,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     private final String prometheusRemoteWriteUrl;
     private final PrometheusAsyncHttpClientBuilder clientBuilder;
     private final PrometheusRequestSigner requestSigner;
-
     private final int maxBatchSizeInSamples;
+    private final String httpUserAgent;
 
     protected PrometheusSink(
             ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
@@ -45,7 +45,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
             long maxTimeInBufferMS,
             String prometheusRemoteWriteUrl,
             PrometheusAsyncHttpClientBuilder clientBuilder,
-            PrometheusRequestSigner requestSigner) {
+            PrometheusRequestSigner requestSigner,
+            String httpUserAgent) {
         super(
                 elementConverter,
                 maxBatchSizeInSamples, // maxBatchSize,
@@ -59,6 +60,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
         this.requestSigner = requestSigner;
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.clientBuilder = clientBuilder;
+        this.httpUserAgent = httpUserAgent;
     }
 
     public int getMaxBatchSizeInSamples() {
@@ -81,7 +83,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
                 counters,
-                requestSigner);
+                requestSigner,
+                httpUserAgent);
     }
 
     @Override
@@ -102,6 +105,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 asyncHttpClient,
                 counters,
                 requestSigner,
+                httpUserAgent,
                 recoveredState);
     }
 

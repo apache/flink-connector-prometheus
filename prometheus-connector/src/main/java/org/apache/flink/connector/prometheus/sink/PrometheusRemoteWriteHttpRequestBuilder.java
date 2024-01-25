@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.util.Preconditions;
+
 import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.async.methods.SimpleRequestBuilder;
 import org.apache.hc.core5.http.ContentType;
@@ -30,28 +32,32 @@ public class PrometheusRemoteWriteHttpRequestBuilder {
 
     private static final ContentType CONTENT_TYPE = ContentType.create("application/x-protobuf");
 
-    private static final Map<String, String> FIXED_HEADER =
-            Map.of(
-                    HttpHeaders.CONTENT_ENCODING,
-                    "snappy",
-                    "X-Prometheus-Remote-Write-Version",
-                    "0.1.0",
-                    HttpHeaders.USER_AGENT,
-                    "Flink-Prometheus/0.1.0" // TODO Prometheus requires a user-agent header. What
-                    // should we use?
-                    );
-
+    public static final String DEFAULT_USER_AGENT = "Flink-Prometheus";
     private final String prometheusRemoteWriteUrl;
     private final PrometheusRequestSigner requestSigner;
 
+    private final Map<String, String> fixedHeaders;
+
     public PrometheusRemoteWriteHttpRequestBuilder(
-            String prometheusRemoteWriteUrl, PrometheusRequestSigner requestSigner) {
+            String prometheusRemoteWriteUrl,
+            PrometheusRequestSigner requestSigner,
+            String httpUserAgent) {
+        Preconditions.checkNotNull(httpUserAgent, "User-Agent not specified");
+
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.requestSigner = requestSigner;
+        this.fixedHeaders =
+                Map.of(
+                        HttpHeaders.CONTENT_ENCODING,
+                        "snappy",
+                        "X-Prometheus-Remote-Write-Version",
+                        "0.1.0",
+                        HttpHeaders.USER_AGENT,
+                        httpUserAgent);
     }
 
     public SimpleHttpRequest buildHttpRequest(byte[] httpRequestBody) {
-        Map<String, String> headers = new HashMap<>(FIXED_HEADER);
+        Map<String, String> headers = new HashMap<>(fixedHeaders);
         if (requestSigner != null) {
             requestSigner.addSignatureHeaders(headers, httpRequestBody);
         }

@@ -49,6 +49,7 @@ public class PrometheusSinkBuilder
     private PrometheusRequestSigner requestSigner = null;
     private Integer maxBatchSizeInSamples;
     private Integer maxRecordSizeInSamples;
+    private String httpUserAgent = null;
 
     @Override
     public AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> build() {
@@ -71,6 +72,10 @@ public class PrometheusSinkBuilder
                 Optional.ofNullable(getSocketTimeoutMs())
                         .orElse(PrometheusAsyncHttpClientBuilder.DEFAULT_SOCKET_TIMEOUT_MS);
 
+        String actualHttpUserAgent =
+                Optional.ofNullable(getHttpUserAgent())
+                        .orElse(PrometheusRemoteWriteHttpRequestBuilder.DEFAULT_USER_AGENT);
+
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(prometheusRemoteWriteUrl),
                 "Missing or blank Prometheus Remote-Write URL");
@@ -87,7 +92,7 @@ public class PrometheusSinkBuilder
                         + "\n\t\tmaxBatchSizeInSamples={}\n\t\tmaxRecordSizeInSamples={}"
                         + "\n\t\tmaxTimeInBufferMs={}\n\t\tmaxInFlightRequests={}\n\t\tmaxBufferedRequests={}"
                         + "\n\t\tinitialRetryDelayMs={}\n\t\tmaxRetryDelayMs={}\n\t\tmaxRetryCount={}"
-                        + "\n\t\tsocketTimeoutMs={}",
+                        + "\n\t\tsocketTimeoutMs={}\n\t\thttpUserAgent={}",
                 actualMaxBatchSizeInSamples,
                 actualMaxRecordSizeInSamples,
                 actualMaxTimeInBufferMS,
@@ -96,7 +101,8 @@ public class PrometheusSinkBuilder
                 retryConfiguration.getInitialRetryDelayMS(),
                 retryConfiguration.getMaxRetryDelayMS(),
                 retryConfiguration.getMaxRetryCount(),
-                socketTimeoutMs);
+                socketTimeoutMs,
+                actualHttpUserAgent);
 
         return new PrometheusSink(
                 new PrometheusTimeSeriesConverter(),
@@ -108,7 +114,8 @@ public class PrometheusSinkBuilder
                 prometheusRemoteWriteUrl,
                 new PrometheusAsyncHttpClientBuilder(retryConfiguration)
                         .setSocketTimeout(actualSocketTimeoutMs),
-                requestSigner);
+                requestSigner,
+                actualHttpUserAgent);
     }
 
     private static void checkValidRemoteWriteUrl(String url) {
@@ -149,6 +156,11 @@ public class PrometheusSinkBuilder
         return this;
     }
 
+    public PrometheusSinkBuilder setHttpUserAgent(String httpUserAgent) {
+        this.httpUserAgent = httpUserAgent;
+        return this;
+    }
+
     private Integer getMaxBatchSizeInSamples() {
         return maxBatchSizeInSamples;
     }
@@ -163,6 +175,10 @@ public class PrometheusSinkBuilder
 
     public Integer getSocketTimeoutMs() {
         return socketTimeoutMs;
+    }
+
+    public String getHttpUserAgent() {
+        return httpUserAgent;
     }
 
     /// Disable setting maxBatchSize, maxBatchSizeInBytes, and maxRecordSizeInBytes directly

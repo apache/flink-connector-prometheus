@@ -33,10 +33,12 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
     private static final String ENDPOINT = "/anything";
     private static final byte[] REQUEST_BODY = {(byte) 0x01};
 
+    private static final String USER_AGENT = "MY-USER-AGENT";
+
     @Test
     void shouldAddContentEncodingHeader() {
         PrometheusRemoteWriteHttpRequestBuilder sut =
-                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null, USER_AGENT);
         var request = sut.buildHttpRequest(REQUEST_BODY);
         assertEquals("snappy", request.getHeaders(HttpHeaders.CONTENT_ENCODING)[0].getValue());
     }
@@ -44,7 +46,7 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
     @Test
     void shouldAddPrometheusRemoteWriteVersionHeader() {
         PrometheusRemoteWriteHttpRequestBuilder sut =
-                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null, USER_AGENT);
         var request = sut.buildHttpRequest(REQUEST_BODY);
         assertEquals(
                 "0.1.0", request.getHeaders("X-Prometheus-Remote-Write-Version")[0].getValue());
@@ -53,16 +55,17 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
     @Test
     void shouldAddUserAgent() {
         PrometheusRemoteWriteHttpRequestBuilder sut =
-                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null);
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null, USER_AGENT);
         var request = sut.buildHttpRequest(REQUEST_BODY);
         assertEquals(1, request.getHeaders(HttpHeaders.USER_AGENT).length);
+        assertEquals(USER_AGENT, request.getHeaders(HttpHeaders.USER_AGENT)[0].getValue());
     }
 
     @Test
     void shouldInvokeRequestSignerPassingAMutableMap() {
         PrometheusRequestSigner mockSigner = mock(PrometheusRequestSigner.class);
         PrometheusRemoteWriteHttpRequestBuilder sut =
-                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, mockSigner);
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, mockSigner, USER_AGENT);
 
         sut.buildHttpRequest(REQUEST_BODY);
 

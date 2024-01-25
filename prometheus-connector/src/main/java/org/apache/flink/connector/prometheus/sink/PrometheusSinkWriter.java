@@ -83,7 +83,8 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             String prometheusRemoteWriteUrl,
             CloseableHttpAsyncClient asyncHttpClient,
             SinkCounters counters,
-            PrometheusRequestSigner requestSigner) {
+            PrometheusRequestSigner requestSigner,
+            String httpUserAgent) {
         this(
                 elementConverter,
                 context,
@@ -95,6 +96,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 asyncHttpClient,
                 counters,
                 requestSigner,
+                httpUserAgent,
                 Collections.emptyList());
     }
 
@@ -109,6 +111,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             CloseableHttpAsyncClient asyncHttpClient,
             SinkCounters counters,
             PrometheusRequestSigner requestSigner,
+            String httpUserAgent,
             Collection<BufferedRequestState<Types.TimeSeries>> states) {
         super(
                 elementConverter,
@@ -122,7 +125,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 states);
         this.requestBuilder =
                 new PrometheusRemoteWriteHttpRequestBuilder(
-                        prometheusRemoteWriteUrl, requestSigner);
+                        prometheusRemoteWriteUrl, requestSigner, httpUserAgent);
         this.asyncHttpClient = asyncHttpClient;
         this.counters = counters;
     }
