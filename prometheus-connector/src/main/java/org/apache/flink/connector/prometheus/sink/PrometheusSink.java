@@ -20,6 +20,7 @@ package org.apache.flink.connector.prometheus.sink;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
+import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -35,6 +36,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     private final PrometheusRequestSigner requestSigner;
     private final int maxBatchSizeInSamples;
     private final String httpUserAgent;
+    private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
     protected PrometheusSink(
             ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
@@ -46,7 +48,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
             String prometheusRemoteWriteUrl,
             PrometheusAsyncHttpClientBuilder clientBuilder,
             PrometheusRequestSigner requestSigner,
-            String httpUserAgent) {
+            String httpUserAgent,
+            SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig) {
         super(
                 elementConverter,
                 maxBatchSizeInSamples, // maxBatchSize,
@@ -61,6 +64,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.clientBuilder = clientBuilder;
         this.httpUserAgent = httpUserAgent;
+        this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
     }
 
     public int getMaxBatchSizeInSamples() {
@@ -84,7 +88,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 asyncHttpClient,
                 counters,
                 requestSigner,
-                httpUserAgent);
+                httpUserAgent,
+                errorHandlingBehaviorConfig);
     }
 
     @Override
@@ -106,6 +111,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 counters,
                 requestSigner,
                 httpUserAgent,
+                errorHandlingBehaviorConfig,
                 recoveredState);
     }
 

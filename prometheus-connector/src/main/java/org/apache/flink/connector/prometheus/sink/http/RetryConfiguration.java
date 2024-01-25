@@ -23,7 +23,7 @@ import java.io.Serializable;
 public class RetryConfiguration implements Serializable {
     public static final long DEFAULT_INITIAL_RETRY_DELAY_MS = 30L;
     public static final long DEFAULT_MAX_RETRY_DELAY_MS = 5000L;
-    public static final int DEFAULT_MAX_RETRY_COUNT = Integer.MAX_VALUE;
+    public static final int DEFAULT_MAX_RETRY_COUNT = 100;
 
     private final long initialRetryDelayMS;
     private final long maxRetryDelayMS;

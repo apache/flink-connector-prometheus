@@ -25,6 +25,8 @@ import org.apache.flink.connector.prometheus.sink.PrometheusSink;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeriesLabelsAndMetricNameKeySelector;
 import org.apache.flink.connector.prometheus.sink.aws.AmazonManagedPrometheusWriteRequestSigner;
+import org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior;
+import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.RetryConfiguration;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -162,6 +164,12 @@ public class DataStreamJob {
                         .setRequestSigner(
                                 new AmazonManagedPrometheusWriteRequestSigner(
                                         prometheusRemoteWriteUrl, prometheusRegion))
+                        .setErrorHandlingBehaviourConfiguration(
+                                SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                                        .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
+                                        .onMaxRetryExceeded(OnErrorBehavior.FAIL)
+                                        .onHttpClientIOFail(OnErrorBehavior.FAIL)
+                                        .build())
                         .build();
 
         prometheusTimeSeries

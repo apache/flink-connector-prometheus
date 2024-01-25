@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior;
+import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
@@ -91,7 +93,11 @@ public class PrometheusSinkWriterRequestCallbackIT {
         PrometheusSinkWriter.ResponseCallback callback =
                 spy(
                         new PrometheusSinkWriter.ResponseCallback(
-                                TIME_SERIES_COUNT, SAMPLE_COUNT, counters, requestResult));
+                                TIME_SERIES_COUNT,
+                                SAMPLE_COUNT,
+                                counters,
+                                SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
+                                requestResult));
 
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
             client.execute(request, callback);
@@ -136,6 +142,12 @@ public class PrometheusSinkWriterRequestCallbackIT {
     @Test
     void shouldCompleteAndIncrementSamplesDroppedAndRequestFailedAfterRetryingOn500(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
+
+        SinkWriterErrorHandlingBehaviorConfiguration discardOnNonRetriableError =
+                SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                        .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
+                        .build();
+
         SinkCounters counters = mock(SinkCounters.class);
         Consumer<List<Types.TimeSeries>> requestResult = mock(Consumer.class);
         ArgumentCaptor<SinkCounters.SinkCounter> captorCounterInc =
@@ -156,7 +168,11 @@ public class PrometheusSinkWriterRequestCallbackIT {
         PrometheusSinkWriter.ResponseCallback callback =
                 spy(
                         new PrometheusSinkWriter.ResponseCallback(
-                                TIME_SERIES_COUNT, SAMPLE_COUNT, counters, requestResult));
+                                TIME_SERIES_COUNT,
+                                SAMPLE_COUNT,
+                                counters,
+                                discardOnNonRetriableError,
+                                requestResult));
 
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
             client.execute(request, callback);

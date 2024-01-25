@@ -19,6 +19,7 @@ package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.AsyncSinkBaseBuilder;
+import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
 import org.apache.flink.connector.prometheus.sink.http.RetryConfiguration;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
@@ -50,6 +51,7 @@ public class PrometheusSinkBuilder
     private Integer maxBatchSizeInSamples;
     private Integer maxRecordSizeInSamples;
     private String httpUserAgent = null;
+    private SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig = null;
 
     @Override
     public AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> build() {
@@ -76,6 +78,10 @@ public class PrometheusSinkBuilder
                 Optional.ofNullable(getHttpUserAgent())
                         .orElse(PrometheusRemoteWriteHttpRequestBuilder.DEFAULT_USER_AGENT);
 
+        SinkWriterErrorHandlingBehaviorConfiguration actualErrorHandlingBehaviorConfig =
+                Optional.ofNullable(errorHandlingBehaviorConfig)
+                        .orElse(SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS);
+
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(prometheusRemoteWriteUrl),
                 "Missing or blank Prometheus Remote-Write URL");
@@ -92,7 +98,8 @@ public class PrometheusSinkBuilder
                         + "\n\t\tmaxBatchSizeInSamples={}\n\t\tmaxRecordSizeInSamples={}"
                         + "\n\t\tmaxTimeInBufferMs={}\n\t\tmaxInFlightRequests={}\n\t\tmaxBufferedRequests={}"
                         + "\n\t\tinitialRetryDelayMs={}\n\t\tmaxRetryDelayMs={}\n\t\tmaxRetryCount={}"
-                        + "\n\t\tsocketTimeoutMs={}\n\t\thttpUserAgent={}",
+                        + "\n\t\tsocketTimeoutMs={}\n\t\thttpUserAgent={}"
+                        + "\n\t\tErrorHandlingBehaviour: onMaxRetryExceeded={}, onHttpClientIOFailure={}, onNonRetriableError={}",
                 actualMaxBatchSizeInSamples,
                 actualMaxRecordSizeInSamples,
                 actualMaxTimeInBufferMS,
@@ -102,7 +109,10 @@ public class PrometheusSinkBuilder
                 retryConfiguration.getMaxRetryDelayMS(),
                 retryConfiguration.getMaxRetryCount(),
                 socketTimeoutMs,
-                actualHttpUserAgent);
+                actualHttpUserAgent,
+                actualErrorHandlingBehaviorConfig.getOnMaxRetryExceeded(),
+                actualErrorHandlingBehaviorConfig.getOnHttpClientIOFail(),
+                actualErrorHandlingBehaviorConfig.getOnPrometheusNonRetriableError());
 
         return new PrometheusSink(
                 new PrometheusTimeSeriesConverter(),
@@ -115,7 +125,8 @@ public class PrometheusSinkBuilder
                 new PrometheusAsyncHttpClientBuilder(retryConfiguration)
                         .setSocketTimeout(actualSocketTimeoutMs),
                 requestSigner,
-                actualHttpUserAgent);
+                actualHttpUserAgent,
+                actualErrorHandlingBehaviorConfig);
     }
 
     private static void checkValidRemoteWriteUrl(String url) {
@@ -161,6 +172,12 @@ public class PrometheusSinkBuilder
         return this;
     }
 
+    public PrometheusSinkBuilder setErrorHandlingBehaviourConfiguration(
+            SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig) {
+        this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
+        return this;
+    }
+
     private Integer getMaxBatchSizeInSamples() {
         return maxBatchSizeInSamples;
     }
@@ -179,6 +196,10 @@ public class PrometheusSinkBuilder
 
     public String getHttpUserAgent() {
         return httpUserAgent;
+    }
+
+    public SinkWriterErrorHandlingBehaviorConfiguration getErrorHandlingBehaviorConfig() {
+        return errorHandlingBehaviorConfig;
     }
 
     /// Disable accessing maxBatchSize, maxBatchSizeInBytes, and maxRecordSizeInBytes directly

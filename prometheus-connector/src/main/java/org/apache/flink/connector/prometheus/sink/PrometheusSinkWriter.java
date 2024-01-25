@@ -22,6 +22,9 @@ import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.sink.writer.AsyncSinkWriter;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
+import org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior;
+import org.apache.flink.connector.prometheus.sink.errorhandling.PrometheusSinkWriteException;
+import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier;
 import org.apache.flink.connector.prometheus.sink.prometheus.Remote;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
@@ -62,8 +65,8 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
      * <p>In AsyncSinkWriter, maxBatchSize is in terms of requestEntries (TimeSeries). But because
      * each TimeSeries contains 1+ Samples, we set maxBatchSize = maxBatchSizeInBytes.
      *
-     * <p>maxRecordSizeInBytes is also calculated in the same unit assumed by getSizeInBytes(..). In
-     * our case is the max number of Samples in a single TimeSeries sent to the Sink. We are
+     * <p>maxRecordSizeInBytes is also calculated in the same unit assumed by getSizeInBytes(...).
+     * In our case is the max number of Samples in a single TimeSeries sent to the Sink. We are
      * limiting the number of Samples in each TimeSeries to the max batch size, setting
      * maxRecordSizeInBytes = maxBatchSizeInBytes.
      */
@@ -72,6 +75,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
     private final SinkCounters counters;
     private final CloseableHttpAsyncClient asyncHttpClient;
     private final PrometheusRemoteWriteHttpRequestBuilder requestBuilder;
+    private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
     public PrometheusSinkWriter(
             ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
@@ -84,7 +88,8 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             CloseableHttpAsyncClient asyncHttpClient,
             SinkCounters counters,
             PrometheusRequestSigner requestSigner,
-            String httpUserAgent) {
+            String httpUserAgent,
+            SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig) {
         this(
                 elementConverter,
                 context,
@@ -97,6 +102,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 counters,
                 requestSigner,
                 httpUserAgent,
+                errorHandlingBehaviorConfig,
                 Collections.emptyList());
     }
 
@@ -112,6 +118,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             SinkCounters counters,
             PrometheusRequestSigner requestSigner,
             String httpUserAgent,
+            SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
             Collection<BufferedRequestState<Types.TimeSeries>> states) {
         super(
                 elementConverter,
@@ -128,6 +135,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                         prometheusRemoteWriteUrl, requestSigner, httpUserAgent);
         this.asyncHttpClient = asyncHttpClient;
         this.counters = counters;
+        this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
     }
 
     /**
@@ -164,7 +172,12 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
         SimpleHttpRequest postRequest = requestBuilder.buildHttpRequest(requestBody);
         asyncHttpClient.execute(
                 postRequest,
-                new ResponseCallback(timeSeriesCount, sampleCount, counters, requestResult));
+                new ResponseCallback(
+                        timeSeriesCount,
+                        sampleCount,
+                        counters,
+                        errorHandlingBehaviorConfig,
+                        requestResult));
     }
 
     @VisibleForTesting
@@ -173,16 +186,19 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
         private final long sampleCount;
         private final Consumer<List<Types.TimeSeries>> requestResult;
         private final SinkCounters counters;
+        private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
         public ResponseCallback(
                 int timeSeriesCount,
                 long sampleCount,
                 SinkCounters counters,
+                SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
                 Consumer<List<Types.TimeSeries>> requestResult) {
             this.timeSeriesCount = timeSeriesCount;
             this.sampleCount = sampleCount;
             this.requestResult = requestResult;
             this.counters = counters;
+            this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
         }
 
         @Override
@@ -201,24 +217,52 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 counters.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 
                 String responseBody = response.getBodyText();
+                int statusCode = response.getCode();
+                String reasonPhrase = response.getReasonPhrase();
                 if (RemoteWriteResponseClassifier.isNonRetriableErrorResponse(response)) {
-                    LOG.warn(
-                            "{},{} {} (discarded {} time-series, containing {} samples)",
-                            response.getCode(),
-                            response.getReasonPhrase(),
-                            responseBody,
-                            timeSeriesCount,
-                            sampleCount);
-                    counters.inc(NUM_SAMPLES_NON_RETRIABLE_DROPPED, sampleCount);
+                    // Prometheus's response is a non-retriable error.
+                    // Depending on the configured behaviour, log and discard or throw an exception
+                    if (errorHandlingBehaviorConfig.getOnPrometheusNonRetriableError()
+                            == OnErrorBehavior.DISCARD_AND_CONTINUE) {
+                        LOG.warn(
+                                "{},{} {} (discarded {} time-series, containing {} samples)",
+                                statusCode,
+                                reasonPhrase,
+                                responseBody,
+                                timeSeriesCount,
+                                sampleCount);
+                        counters.inc(NUM_SAMPLES_NON_RETRIABLE_DROPPED, sampleCount);
+                    } else {
+                        throw new PrometheusSinkWriteException(
+                                "Non-retriable error response from Prometheus",
+                                statusCode,
+                                reasonPhrase,
+                                timeSeriesCount,
+                                sampleCount,
+                                responseBody);
+                    }
                 } else if (RemoteWriteResponseClassifier.isRetriableErrorResponse(response)) {
-                    LOG.warn(
-                            "{},{} {} (after retry limit reached, discarded {} time-series, containing {} samples)",
-                            response.getCode(),
-                            response.getReasonPhrase(),
-                            responseBody,
-                            timeSeriesCount,
-                            sampleCount);
-                    counters.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
+                    // Retry limit exceeded on retriable error
+                    // Depending on the configured behaviour, log and discard or throw an exception
+                    if (errorHandlingBehaviorConfig.getOnMaxRetryExceeded()
+                            == OnErrorBehavior.DISCARD_AND_CONTINUE) {
+                        throw new PrometheusSinkWriteException(
+                                "Max retry limit exceeded on retriable error",
+                                statusCode,
+                                reasonPhrase,
+                                timeSeriesCount,
+                                sampleCount,
+                                responseBody);
+                    } else {
+                        LOG.warn(
+                                "{},{} {} (after retry limit reached, discarded {} time-series, containing {} samples)",
+                                statusCode,
+                                reasonPhrase,
+                                responseBody,
+                                timeSeriesCount,
+                                sampleCount);
+                        counters.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
+                    }
                 }
             }
 
@@ -228,13 +272,20 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
 
         @Override
         public void failed(Exception ex) {
-            LOG.warn(
-                    "Exception executing the remote-write (discarded {} time-series containing {} samples)",
-                    timeSeriesCount,
-                    sampleCount,
-                    ex);
-            counters.inc(NUM_SAMPLES_DROPPED, sampleCount);
-            counters.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+            // General I/O failure reported by http client
+            // Depending on the configured behavior, throw an exception or log and discard
+            if (errorHandlingBehaviorConfig.getOnHttpClientIOFail() == OnErrorBehavior.FAIL) {
+                throw new PrometheusSinkWriteException(
+                        "Http client failure", timeSeriesCount, sampleCount, ex);
+            } else {
+                LOG.warn(
+                        "Exception executing the remote-write (discarded {} time-series containing {} samples)",
+                        timeSeriesCount,
+                        sampleCount,
+                        ex);
+                counters.inc(NUM_SAMPLES_DROPPED, sampleCount);
+                counters.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+            }
         }
 
         @Override
