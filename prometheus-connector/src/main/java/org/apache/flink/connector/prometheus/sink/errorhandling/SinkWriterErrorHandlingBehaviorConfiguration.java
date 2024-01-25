@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink.errorhandling;
 
+import java.io.Serializable;
 import java.util.Optional;
 
 import static org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior.FAIL;
@@ -25,7 +26,7 @@ import static org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBe
  * Configure the error-handling behavior of the writer, for different types of error. Also defines
  * default behaviors.
  */
-public class SinkWriterErrorHandlingBehaviorConfiguration {
+public class SinkWriterErrorHandlingBehaviorConfiguration implements Serializable {
 
     public static final OnErrorBehavior ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR = FAIL;
     public static final OnErrorBehavior ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR = FAIL;

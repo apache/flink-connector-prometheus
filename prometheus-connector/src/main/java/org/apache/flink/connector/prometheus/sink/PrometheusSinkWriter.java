@@ -290,12 +290,9 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
 
         @Override
         public void cancelled() {
-            LOG.warn(
-                    "Write request execution cancelled (discarded {} time-series containing {} samples)",
-                    timeSeriesCount,
-                    sampleCount);
-            counters.inc(NUM_SAMPLES_DROPPED, sampleCount);
-            counters.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+            // When the async http client is cancelled, the sink always throws an exception
+            throw new PrometheusSinkWriteException(
+                    "Write request execution cancelled", timeSeriesCount, sampleCount);
         }
     }
 

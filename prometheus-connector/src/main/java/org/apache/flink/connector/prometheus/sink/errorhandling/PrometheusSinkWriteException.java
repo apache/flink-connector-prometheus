@@ -27,6 +27,16 @@ public class PrometheusSinkWriteException extends RuntimeException {
     private final long sampleCount;
     private final String httpResponseBody;
 
+    public PrometheusSinkWriteException(String reason, int timeSeriesCount, long sampleCount) {
+        super("Reason: " + reason);
+        this.reason = reason;
+        this.timeSeriesCount = timeSeriesCount;
+        this.sampleCount = sampleCount;
+        this.httpStatusCode = -1;
+        this.httpReasonPhrase = "";
+        this.httpResponseBody = "";
+    }
+
     public PrometheusSinkWriteException(
             String reason, int timeSeriesCount, long sampleCount, Exception cause) {
         super("Reason: " + reason, cause);
