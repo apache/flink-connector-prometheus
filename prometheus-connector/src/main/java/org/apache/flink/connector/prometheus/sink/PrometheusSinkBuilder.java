@@ -181,36 +181,42 @@ public class PrometheusSinkBuilder
         return httpUserAgent;
     }
 
-    /// Disable setting maxBatchSize, maxBatchSizeInBytes, and maxRecordSizeInBytes directly
+    /// Disable accessing maxBatchSize, maxBatchSizeInBytes, and maxRecordSizeInBytes directly
 
+    /** Not supported. Use setMaxBatchSizeInSamples(int) instead */
     @Override
     public PrometheusSinkBuilder setMaxBatchSize(int maxBatchSize) {
         throw new UnsupportedOperationException("maxBatchSize is not supported by this sink");
     }
 
+    /** Not supported. Use setMaxBatchSizeInSamples(int) instead */
     @Override
     public PrometheusSinkBuilder setMaxBatchSizeInBytes(long maxBatchSizeInBytes) {
         throw new UnsupportedOperationException(
                 "maxBatchSizeInBytes is not supported by this sink");
     }
 
+    /** Not supported. Use setMaxRecordSizeInSamples(int) instead */
     @Override
     public PrometheusSinkBuilder setMaxRecordSizeInBytes(long maxRecordSizeInBytes) {
         throw new UnsupportedOperationException(
                 "maxRecordSizeInBytes is not supported by this sink");
     }
 
+    /** Not supported. Use getMaxBatchSizeInSamples() instead */
     @Override
     protected Integer getMaxBatchSize() {
         throw new UnsupportedOperationException("maxBatchSize is not supported by this sink");
     }
 
+    /** Not supported. Use getMaxBatchSizeInSamples() instead */
     @Override
     protected Long getMaxBatchSizeInBytes() {
         throw new UnsupportedOperationException(
                 "maxRecordSizeInBytes is not supported by this sink");
     }
 
+    /** Not supported. Use getMaxRecordSizeInSamples() instead */
     @Override
     protected Long getMaxRecordSizeInBytes() {
         throw new UnsupportedOperationException(
