@@ -263,6 +263,12 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                                 sampleCount);
                         counters.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
                     }
+                } else {
+                    LOG.error(
+                            "{},{} {} - The response was neither classified retriable not non-retriable. This condition should never happen",
+                            statusCode,
+                            reasonPhrase,
+                            responseBody);
                 }
             }
 
