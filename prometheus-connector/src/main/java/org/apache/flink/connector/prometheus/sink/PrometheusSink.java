@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.annotation.Public;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
@@ -30,6 +31,7 @@ import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import java.util.Collection;
 
 /** Sink implementation accepting {@link PrometheusTimeSeries} as inputs. */
+@Public
 public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> {
     private final String prometheusRemoteWriteUrl;
     private final PrometheusAsyncHttpClientBuilder clientBuilder;

@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.annotation.Public;
+
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
@@ -32,6 +34,7 @@ import java.util.Objects;
  * <p>metricName is mapped in Prometheus to the value of the mandatory label named '__name__'
  * labels. The other labels, as key/value, are appended after the '__name__' label.
  */
+@Public
 public class PrometheusTimeSeries implements Serializable {
     /** A single Label. */
     public static class Label implements Serializable {
