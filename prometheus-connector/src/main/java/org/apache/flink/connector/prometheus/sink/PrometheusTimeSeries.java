@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Pojo used as sink input, containing a single TimeSeries: a list of Labels and a list of Samples.
@@ -156,5 +157,27 @@ public class PrometheusTimeSeries implements Serializable {
                     labels.toArray(new Label[labels.size()]),
                     samples.toArray(new Sample[samples.size()]));
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PrometheusTimeSeries that = (PrometheusTimeSeries) o;
+        return Arrays.equals(labels, that.labels)
+                && Arrays.equals(samples, that.samples)
+                && Objects.equals(metricName, that.metricName);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(metricName);
+        result = 31 * result + Arrays.hashCode(labels);
+        result = 31 * result + Arrays.hashCode(samples);
+        return result;
     }
 }
