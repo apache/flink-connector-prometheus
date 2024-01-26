@@ -264,10 +264,12 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                         counters.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
                     }
                 } else {
-                    LOG.error(
-                            "{},{} {} - The response was neither classified retriable not non-retriable. This condition should never happen",
+                    throw new PrometheusSinkWriteException(
+                            "Unexpected status code returned from the remote-write endpoint",
                             statusCode,
                             reasonPhrase,
+                            timeSeriesCount,
+                            sampleCount,
                             responseBody);
                 }
             }
