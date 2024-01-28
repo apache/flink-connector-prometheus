@@ -44,12 +44,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_WRITE_REQUESTS_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
 
 /** Writer, taking care of batching the {@link PrometheusTimeSeries} and handling retries. */
 public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, Types.TimeSeries> {
@@ -72,7 +72,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
      */
     private static final Logger LOG = LoggerFactory.getLogger(PrometheusSinkWriter.class);
 
-    private final SinkCounters counters;
+    private final SinkMetrics metrics;
     private final CloseableHttpAsyncClient asyncHttpClient;
     private final PrometheusRemoteWriteHttpRequestBuilder requestBuilder;
     private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
@@ -86,7 +86,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             long maxTimeInBufferMS,
             String prometheusRemoteWriteUrl,
             CloseableHttpAsyncClient asyncHttpClient,
-            SinkCounters counters,
+            SinkMetrics metrics,
             PrometheusRequestSigner requestSigner,
             String httpUserAgent,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig) {
@@ -99,7 +99,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 maxTimeInBufferMS,
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
-                counters,
+                metrics,
                 requestSigner,
                 httpUserAgent,
                 errorHandlingBehaviorConfig,
@@ -115,7 +115,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             long maxTimeInBufferMS,
             String prometheusRemoteWriteUrl,
             CloseableHttpAsyncClient asyncHttpClient,
-            SinkCounters counters,
+            SinkMetrics metrics,
             PrometheusRequestSigner requestSigner,
             String httpUserAgent,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
@@ -134,7 +134,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 new PrometheusRemoteWriteHttpRequestBuilder(
                         prometheusRemoteWriteUrl, requestSigner, httpUserAgent);
         this.asyncHttpClient = asyncHttpClient;
-        this.counters = counters;
+        this.metrics = metrics;
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
     }
 
@@ -175,7 +175,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 new ResponseCallback(
                         timeSeriesCount,
                         sampleCount,
-                        counters,
+                        metrics,
                         errorHandlingBehaviorConfig,
                         requestResult));
     }
@@ -185,19 +185,19 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
         private final int timeSeriesCount;
         private final long sampleCount;
         private final Consumer<List<Types.TimeSeries>> requestResult;
-        private final SinkCounters counters;
+        private final SinkMetrics metrics;
         private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
         public ResponseCallback(
                 int timeSeriesCount,
                 long sampleCount,
-                SinkCounters counters,
+                SinkMetrics metrics,
                 SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
                 Consumer<List<Types.TimeSeries>> requestResult) {
             this.timeSeriesCount = timeSeriesCount;
             this.sampleCount = sampleCount;
             this.requestResult = requestResult;
-            this.counters = counters;
+            this.metrics = metrics;
             this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
         }
 
@@ -210,11 +210,11 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                         response.getReasonPhrase(),
                         timeSeriesCount,
                         sampleCount);
-                counters.inc(NUM_SAMPLES_OUT, sampleCount);
-                counters.inc(NUM_WRITE_REQUESTS_OUT);
+                metrics.inc(NUM_SAMPLES_OUT, sampleCount);
+                metrics.inc(NUM_WRITE_REQUESTS_OUT);
             } else {
-                counters.inc(NUM_SAMPLES_DROPPED, sampleCount);
-                counters.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+                metrics.inc(NUM_SAMPLES_DROPPED, sampleCount);
+                metrics.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 
                 String responseBody = response.getBodyText();
                 int statusCode = response.getCode();
@@ -231,7 +231,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                                 responseBody,
                                 timeSeriesCount,
                                 sampleCount);
-                        counters.inc(NUM_SAMPLES_NON_RETRIABLE_DROPPED, sampleCount);
+                        metrics.inc(NUM_SAMPLES_NON_RETRIABLE_DROPPED, sampleCount);
                     } else {
                         throw new PrometheusSinkWriteException(
                                 "Non-retriable error response from Prometheus",
@@ -261,7 +261,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                                 responseBody,
                                 timeSeriesCount,
                                 sampleCount);
-                        counters.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
+                        metrics.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
                     }
                 } else {
                     throw new PrometheusSinkWriteException(
@@ -291,8 +291,8 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                         timeSeriesCount,
                         sampleCount,
                         ex);
-                counters.inc(NUM_SAMPLES_DROPPED, sampleCount);
-                counters.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+                metrics.inc(NUM_SAMPLES_DROPPED, sampleCount);
+                metrics.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
             }
         }
 

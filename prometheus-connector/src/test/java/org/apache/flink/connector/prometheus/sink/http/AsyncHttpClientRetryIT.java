@@ -17,7 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
-import org.apache.flink.connector.prometheus.sink.SinkCounters;
+import org.apache.flink.connector.prometheus.sink.SinkMetrics;
 import org.apache.flink.connector.prometheus.sink.WireMockTestUtils;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
@@ -55,7 +55,7 @@ public class AsyncHttpClientRetryIT {
     public void shouldRetryOn500UpToRetryLimitThenSuccessfullyReturn(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(serverError()));
-        var counters = mock(SinkCounters.class);
+        var counters = mock(SinkMetrics.class);
 
         int retryLimit = 10;
         int expectedRequestCount = retryLimit + 1;
@@ -81,7 +81,7 @@ public class AsyncHttpClientRetryIT {
     public void shouldRetryOn429UpToRetryLimitThenSuccessfullyReturn(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(status(HttpStatus.SC_TOO_MANY_REQUESTS)));
-        var counters = mock(SinkCounters.class);
+        var counters = mock(SinkMetrics.class);
 
         int retryLimit = 10;
         int expectedRequestCount = retryLimit + 1;
@@ -107,7 +107,7 @@ public class AsyncHttpClientRetryIT {
     public void shouldNotRetryOn404ThenSuccessfullyReturn(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(notFound()));
-        var counters = mock(SinkCounters.class);
+        var counters = mock(SinkMetrics.class);
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.retryConfiguration(2));
@@ -129,7 +129,7 @@ public class AsyncHttpClientRetryIT {
     void shouldNotRetryOn200OkThenSuccessfullyReturn(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(ok()));
-        var counters = mock(SinkCounters.class);
+        var counters = mock(SinkMetrics.class);
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.retryConfiguration(2));

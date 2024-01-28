@@ -76,8 +76,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     @Override
     public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
             createWriter(InitContext initContext) {
-        SinkCounters counters = SinkCounters.buildSinkCounters(initContext.metricGroup());
-        CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(counters);
+        SinkMetrics metrics = SinkMetrics.registerSinkMetrics(initContext.metricGroup());
+        CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(metrics);
 
         return new PrometheusSinkWriter(
                 getElementConverter(),
@@ -88,7 +88,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 getMaxTimeInBufferMS(),
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
-                counters,
+                metrics,
                 requestSigner,
                 httpUserAgent,
                 errorHandlingBehaviorConfig);
@@ -99,8 +99,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
             restoreWriter(
                     InitContext initContext,
                     Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
-        SinkCounters counters = SinkCounters.buildSinkCounters(initContext.metricGroup());
-        CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(counters);
+        SinkMetrics metrics = SinkMetrics.registerSinkMetrics(initContext.metricGroup());
+        CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(metrics);
         return new PrometheusSinkWriter(
                 getElementConverter(),
                 initContext,
@@ -110,7 +110,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 getMaxTimeInBufferMS(),
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
-                counters,
+                metrics,
                 requestSigner,
                 httpUserAgent,
                 errorHandlingBehaviorConfig,

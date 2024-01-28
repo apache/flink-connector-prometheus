@@ -18,13 +18,13 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.metrics.Counter;
-import org.apache.flink.metrics.groups.SinkWriterMetricGroup;
+import org.apache.flink.metrics.MetricGroup;
 
-/** Wraps all counter metrics in a single class. */
-public class SinkCounters {
+/** Wraps all metrics in a single class. */
+public class SinkMetrics {
     private final Counter[] counters;
 
-    private SinkCounters(Counter[] counters) {
+    private SinkMetrics(Counter[] counters) {
         this.counters = counters;
     }
 
@@ -36,15 +36,17 @@ public class SinkCounters {
         counters[counter.ordinal()].inc();
     }
 
-    static SinkCounters buildSinkCounters(SinkWriterMetricGroup metrics) {
+    /** Register all custom sink metrics and return an of this wrapper class. */
+    static SinkMetrics registerSinkMetrics(MetricGroup metrics) {
+        // Register all counters
         Counter[] counters = new Counter[SinkCounter.values().length];
         for (SinkCounter metric : SinkCounter.values()) {
             counters[metric.ordinal()] = metrics.counter(metric.getMetricName());
         }
-        return new SinkCounters(counters);
+        return new SinkMetrics(counters);
     }
 
-    /** Create an instance with all counter metrics. */
+    /** Enum defining all sink counters. */
     public enum SinkCounter {
         // Total number of Samples that were dropped because of not being retriable errors in
         // Prometheus

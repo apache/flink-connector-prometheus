@@ -41,12 +41,12 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_WRITE_REQUESTS_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkCounters.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
+import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -73,12 +73,12 @@ public class PrometheusSinkWriterRequestCallbackIT {
     @Test
     void shouldCompleteAndIncrementSamplesOutAndWriteRequestsOn200Ok(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
-        SinkCounters counters = mock(SinkCounters.class);
+        SinkMetrics metrics = mock(SinkMetrics.class);
         Consumer<List<Types.TimeSeries>> requestResult = mock(Consumer.class);
-        ArgumentCaptor<SinkCounters.SinkCounter> captorCounterInc =
-                ArgumentCaptor.forClass(SinkCounters.SinkCounter.class);
-        ArgumentCaptor<SinkCounters.SinkCounter> captorCounterIncValue =
-                ArgumentCaptor.forClass(SinkCounters.SinkCounter.class);
+        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterInc =
+                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
+        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterIncValue =
+                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
 
         WireMock.stubFor(post("/remote_write").willReturn(ok()));
 
@@ -95,11 +95,11 @@ public class PrometheusSinkWriterRequestCallbackIT {
                         new PrometheusSinkWriter.ResponseCallback(
                                 TIME_SERIES_COUNT,
                                 SAMPLE_COUNT,
-                                counters,
+                                metrics,
                                 SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
                                 requestResult));
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             client.execute(request, callback);
 
             await().untilAsserted(
@@ -114,16 +114,16 @@ public class PrometheusSinkWriterRequestCallbackIT {
                                 verify(requestResult).accept(eq(Collections.emptyList()));
 
                                 // Capture the counter inc calls...
-                                verify(counters, atLeastOnce())
+                                verify(metrics, atLeastOnce())
                                         .inc(captorCounterIncValue.capture(), eq(SAMPLE_COUNT));
-                                verify(counters, atLeastOnce()).inc(captorCounterInc.capture());
+                                verify(metrics, atLeastOnce()).inc(captorCounterInc.capture());
 
-                                // Check expected counters are incremented
+                                // Check expected metrics are incremented
                                 assertCounterWasIncremented(NUM_SAMPLES_OUT, captorCounterIncValue);
                                 assertCounterWasIncremented(
                                         NUM_WRITE_REQUESTS_OUT, captorCounterInc);
 
-                                // Check expected counters are not incremented
+                                // Check expected metrics are not incremented
                                 assertCounterWasNotIncremented(
                                         NUM_SAMPLES_DROPPED, captorCounterIncValue);
                                 assertCounterWasNotIncremented(
@@ -148,12 +148,12 @@ public class PrometheusSinkWriterRequestCallbackIT {
                         .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
                         .build();
 
-        SinkCounters counters = mock(SinkCounters.class);
+        SinkMetrics counters = mock(SinkMetrics.class);
         Consumer<List<Types.TimeSeries>> requestResult = mock(Consumer.class);
-        ArgumentCaptor<SinkCounters.SinkCounter> captorCounterInc =
-                ArgumentCaptor.forClass(SinkCounters.SinkCounter.class);
-        ArgumentCaptor<SinkCounters.SinkCounter> captorCounterIncValue =
-                ArgumentCaptor.forClass(SinkCounters.SinkCounter.class);
+        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterInc =
+                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
+        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterIncValue =
+                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
 
         WireMock.stubFor(post("/remote_write").willReturn(serverError()));
 
@@ -217,16 +217,16 @@ public class PrometheusSinkWriterRequestCallbackIT {
     // TODO test more behaviours
 
     private static void assertCounterWasIncremented(
-            SinkCounters.SinkCounter expectedCounter,
-            ArgumentCaptor<SinkCounters.SinkCounter> counterTypeArg) {
+            SinkMetrics.SinkCounter expectedCounter,
+            ArgumentCaptor<SinkMetrics.SinkCounter> counterTypeArg) {
         assertTrue(
                 counterTypeArg.getAllValues().contains(expectedCounter),
                 expectedCounter.getMetricName() + " should be incremented");
     }
 
     private static void assertCounterWasNotIncremented(
-            SinkCounters.SinkCounter expectedCounter,
-            ArgumentCaptor<SinkCounters.SinkCounter> counterTypeArg) {
+            SinkMetrics.SinkCounter expectedCounter,
+            ArgumentCaptor<SinkMetrics.SinkCounter> counterTypeArg) {
         assertFalse(
                 counterTypeArg.getAllValues().contains(expectedCounter),
                 expectedCounter.getMetricName() + " should NOT be incremented");

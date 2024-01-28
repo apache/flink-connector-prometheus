@@ -17,7 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
-import org.apache.flink.connector.prometheus.sink.SinkCounters;
+import org.apache.flink.connector.prometheus.sink.SinkMetrics;
 
 import org.apache.hc.client5.http.HttpRequestRetryStrategy;
 import org.apache.hc.core5.http.HttpRequest;
@@ -52,9 +52,9 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
     private final long maxRetryDelayMs;
     private final int maxRetryCount;
 
-    private final SinkCounters counters;
+    private final SinkMetrics counters;
 
-    public RemoteWriteRetryStrategy(RetryConfiguration retryConfiguration, SinkCounters counters) {
+    public RemoteWriteRetryStrategy(RetryConfiguration retryConfiguration, SinkMetrics counters) {
         this.initialRetryDelayMs = retryConfiguration.getInitialRetryDelayMS();
         this.maxRetryDelayMs = retryConfiguration.getMaxRetryDelayMS();
         this.maxRetryCount = retryConfiguration.getMaxRetryCount();
@@ -100,7 +100,7 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
 
     private void countRetry(boolean retry) {
         if (retry) {
-            counters.inc(SinkCounters.SinkCounter.NUM_WRITE_REQUESTS_RETRIES);
+            counters.inc(SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_RETRIES);
         }
     }
 }

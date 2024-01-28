@@ -17,7 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
-import org.apache.flink.connector.prometheus.sink.SinkCounters;
+import org.apache.flink.connector.prometheus.sink.SinkMetrics;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.hc.client5.http.config.TlsConfig;
@@ -47,7 +47,7 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
         return this;
     }
 
-    public CloseableHttpAsyncClient buildAndStartClient(SinkCounters counters) {
+    public CloseableHttpAsyncClient buildAndStartClient(SinkMetrics counters) {
         int actualSocketTimeoutMs =
                 Optional.ofNullable(socketTimeoutMs).orElse(DEFAULT_SOCKET_TIMEOUT_MS);
 
