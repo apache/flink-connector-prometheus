@@ -17,7 +17,6 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.sink.writer.AsyncSinkWriter;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
@@ -180,11 +179,10 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                         requestResult));
     }
 
-    @VisibleForTesting
     static class ResponseCallback implements FutureCallback<SimpleHttpResponse> {
         private final int timeSeriesCount;
         private final long sampleCount;
-        private final Consumer<List<Types.TimeSeries>> requestResult;
+        private final Consumer<List<Types.TimeSeries>> requeuedResult;
         private final SinkMetrics metrics;
         private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
@@ -193,10 +191,10 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 long sampleCount,
                 SinkMetrics metrics,
                 SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
-                Consumer<List<Types.TimeSeries>> requestResult) {
+                Consumer<List<Types.TimeSeries>> requeuedResult) {
             this.timeSeriesCount = timeSeriesCount;
             this.sampleCount = sampleCount;
-            this.requestResult = requestResult;
+            this.requeuedResult = requeuedResult;
             this.metrics = metrics;
             this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
         }
@@ -275,7 +273,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             }
 
             // Never re-queue requests
-            requestResult.accept(Collections.emptyList());
+            requeuedResult.accept(Collections.emptyList());
         }
 
         @Override

@@ -27,12 +27,12 @@ import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
 import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -41,6 +41,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCounterCount;
+import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCounterWasNotIncremented;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
@@ -48,14 +50,6 @@ import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
 import static org.awaitility.Awaitility.await;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
 
 /**
  * Test the stack of RemoteWriteRetryStrategy, RetryConfiguration and RemoteWriteResponseClassifier,
@@ -70,15 +64,23 @@ public class PrometheusSinkWriterRequestCallbackIT {
     private static final int TIME_SERIES_COUNT = 13;
     private static final long SAMPLE_COUNT = 42;
 
+    private SinkMetrics sinkMetrics(InspectableMetricGroup metricGroup) {
+        return SinkMetrics.registerSinkMetrics(metricGroup);
+    }
+
+    private Consumer<List<Types.TimeSeries>> requestResult(List<Types.TimeSeries> emittedResults) {
+        return emittedResults::addAll;
+    }
+
     @Test
     void shouldCompleteAndIncrementSamplesOutAndWriteRequestsOn200Ok(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
-        SinkMetrics metrics = mock(SinkMetrics.class);
-        Consumer<List<Types.TimeSeries>> requestResult = mock(Consumer.class);
-        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterInc =
-                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
-        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterIncValue =
-                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
+
+        InspectableMetricGroup metricGroup = new InspectableMetricGroup();
+        SinkMetrics metrics = sinkMetrics(metricGroup);
+
+        List<Types.TimeSeries> requeuedResults = new ArrayList<>();
+        Consumer<List<Types.TimeSeries>> requestResult = requestResult(requeuedResults);
 
         WireMock.stubFor(post("/remote_write").willReturn(ok()));
 
@@ -90,8 +92,8 @@ public class PrometheusSinkWriterRequestCallbackIT {
                 WireMockTestUtils.buildPostRequest(
                         WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
 
-        PrometheusSinkWriter.ResponseCallback callback =
-                spy(
+        VerifyableResponseCallback callback =
+                new VerifyableResponseCallback(
                         new PrometheusSinkWriter.ResponseCallback(
                                 TIME_SERIES_COUNT,
                                 SAMPLE_COUNT,
@@ -109,32 +111,24 @@ public class PrometheusSinkWriterRequestCallbackIT {
                                         WireMock.exactly(1),
                                         postRequestedFor(urlEqualTo("/remote_write")));
 
-                                // Check the callback is called and no entry is re-queued
-                                verify(callback).completed(any());
-                                verify(requestResult).accept(eq(Collections.emptyList()));
+                                // Verify the callback is completed
+                                assertCallbackCompletedOnce(callback);
 
-                                // Capture the counter inc calls...
-                                verify(metrics, atLeastOnce())
-                                        .inc(captorCounterIncValue.capture(), eq(SAMPLE_COUNT));
-                                verify(metrics, atLeastOnce()).inc(captorCounterInc.capture());
+                                // Verify no result was requeued
+                                assertNoReQueuedResult(requeuedResults);
 
-                                // Check expected metrics are incremented
-                                assertCounterWasIncremented(NUM_SAMPLES_OUT, captorCounterIncValue);
-                                assertCounterWasIncremented(
-                                        NUM_WRITE_REQUESTS_OUT, captorCounterInc);
+                                // Verify counters have been incremented to the expected values
+                                assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_OUT);
+                                assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_OUT);
 
-                                // Check expected metrics are not incremented
+                                // Verify other counters have not been incremented
+                                assertCounterWasNotIncremented(metricGroup, NUM_SAMPLES_DROPPED);
                                 assertCounterWasNotIncremented(
-                                        NUM_SAMPLES_DROPPED, captorCounterIncValue);
+                                        metricGroup, NUM_SAMPLES_RETRY_LIMIT_DROPPED);
                                 assertCounterWasNotIncremented(
-                                        NUM_SAMPLES_RETRY_LIMIT_DROPPED, captorCounterIncValue);
+                                        metricGroup, NUM_SAMPLES_NON_RETRIABLE_DROPPED);
                                 assertCounterWasNotIncremented(
-                                        NUM_SAMPLES_NON_RETRIABLE_DROPPED, captorCounterIncValue);
-                                assertCounterWasNotIncremented(
-                                        NUM_WRITE_REQUESTS_PERMANENTLY_FAILED,
-                                        captorCounterIncValue);
-                                assertCounterWasNotIncremented(
-                                        NUM_WRITE_REQUESTS_PERMANENTLY_FAILED, captorCounterInc);
+                                        metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
                             });
         }
     }
@@ -148,12 +142,11 @@ public class PrometheusSinkWriterRequestCallbackIT {
                         .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
                         .build();
 
-        SinkMetrics counters = mock(SinkMetrics.class);
-        Consumer<List<Types.TimeSeries>> requestResult = mock(Consumer.class);
-        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterInc =
-                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
-        ArgumentCaptor<SinkMetrics.SinkCounter> captorCounterIncValue =
-                ArgumentCaptor.forClass(SinkMetrics.SinkCounter.class);
+        InspectableMetricGroup metricGroup = new InspectableMetricGroup();
+        SinkMetrics metrics = sinkMetrics(metricGroup);
+
+        List<Types.TimeSeries> requeuedResults = new ArrayList<>();
+        Consumer<List<Types.TimeSeries>> requestResult = requestResult(requeuedResults);
 
         WireMock.stubFor(post("/remote_write").willReturn(serverError()));
 
@@ -165,70 +158,63 @@ public class PrometheusSinkWriterRequestCallbackIT {
                 WireMockTestUtils.buildPostRequest(
                         WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
 
-        PrometheusSinkWriter.ResponseCallback callback =
-                spy(
+        VerifyableResponseCallback callback =
+                new VerifyableResponseCallback(
                         new PrometheusSinkWriter.ResponseCallback(
                                 TIME_SERIES_COUNT,
                                 SAMPLE_COUNT,
-                                counters,
+                                metrics,
                                 discardOnNonRetriableError,
                                 requestResult));
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             client.execute(request, callback);
 
             await().untilAsserted(
                             () -> {
-                                // Check the client retries
+                                // Check the http client retries for max retries + one initial
+                                // attempt
                                 WireMock.verify(
                                         WireMock.exactly(maxRetryCount + 1),
-                                        postRequestedFor(
-                                                urlEqualTo("/remote_write"))); // max retries + 1
-                                // initial attempt
+                                        postRequestedFor(urlEqualTo("/remote_write")));
 
-                                // Check the callback is called and no entry is re-queued
-                                verify(callback).completed(any());
-                                verify(requestResult).accept(eq(Collections.emptyList()));
+                                // Verify the callback is completed
+                                assertCallbackCompletedOnce(callback);
 
-                                // Capture the counter inc calls...
-                                verify(counters, atLeastOnce())
-                                        .inc(captorCounterIncValue.capture(), eq(SAMPLE_COUNT));
-                                verify(counters, atLeastOnce()).inc(captorCounterInc.capture());
+                                // Verify no result was re-queued
+                                assertNoReQueuedResult(requeuedResults);
 
-                                // Check expected counters are incremented
-                                assertCounterWasIncremented(
-                                        NUM_SAMPLES_RETRY_LIMIT_DROPPED, captorCounterIncValue);
-                                assertCounterWasIncremented(
-                                        NUM_SAMPLES_DROPPED, captorCounterIncValue);
-                                assertCounterWasIncremented(
-                                        NUM_WRITE_REQUESTS_PERMANENTLY_FAILED, captorCounterInc);
+                                // Verify counters have been incremented to the expected values
+                                assertCounterCount(
+                                        SAMPLE_COUNT, metricGroup, NUM_SAMPLES_RETRY_LIMIT_DROPPED);
+                                assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_DROPPED);
+                                assertCounterCount(
+                                        1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 
-                                // Check other counters are not incremented
+                                // Verify other counters have not been incremented
+                                assertCounterWasNotIncremented(metricGroup, NUM_SAMPLES_OUT);
                                 assertCounterWasNotIncremented(
-                                        NUM_SAMPLES_OUT, captorCounterIncValue);
-                                assertCounterWasNotIncremented(
-                                        NUM_SAMPLES_NON_RETRIABLE_DROPPED, captorCounterIncValue);
-                                assertCounterWasNotIncremented(
-                                        NUM_WRITE_REQUESTS_OUT, captorCounterInc);
+                                        metricGroup, NUM_SAMPLES_NON_RETRIABLE_DROPPED);
+                                assertCounterWasNotIncremented(metricGroup, NUM_WRITE_REQUESTS_OUT);
                             });
         }
     }
 
     // TODO test more behaviours
 
-    private static void assertCounterWasIncremented(
-            SinkMetrics.SinkCounter expectedCounter,
-            ArgumentCaptor<SinkMetrics.SinkCounter> counterTypeArg) {
-        assertTrue(
-                counterTypeArg.getAllValues().contains(expectedCounter),
-                expectedCounter.getMetricName() + " should be incremented");
+    private static void assertNoReQueuedResult(List<Types.TimeSeries> emittedResults) {
+        Assertions.assertTrue(
+                emittedResults.isEmpty(),
+                emittedResults.size() + " results were re-queued, but none was expected");
     }
 
-    private static void assertCounterWasNotIncremented(
-            SinkMetrics.SinkCounter expectedCounter,
-            ArgumentCaptor<SinkMetrics.SinkCounter> counterTypeArg) {
-        assertFalse(
-                counterTypeArg.getAllValues().contains(expectedCounter),
-                expectedCounter.getMetricName() + " should NOT be incremented");
+    private static void assertCallbackCompletedOnce(VerifyableResponseCallback callback) {
+        int actualCompletionCount = callback.getCompletedResponsesCount();
+        Assertions.assertEquals(
+                1,
+                actualCompletionCount,
+                "The callback was completed "
+                        + actualCompletionCount
+                        + " times, but once was expected");
     }
 }
