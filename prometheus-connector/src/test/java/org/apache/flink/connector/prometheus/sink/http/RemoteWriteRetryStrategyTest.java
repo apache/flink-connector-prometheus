@@ -18,12 +18,9 @@
 package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.flink.connector.prometheus.sink.SinkMetrics;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
-import org.apache.hc.core5.http.HttpRequest;
-import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.HttpStatus;
-import org.apache.hc.core5.http.message.BasicHttpResponse;
-import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.util.TimeValue;
 import org.junit.jupiter.api.Test;
 
@@ -35,10 +32,12 @@ import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
 
+import static org.apache.flink.connector.prometheus.sink.http.HttpClientTestUtils.httpContext;
+import static org.apache.flink.connector.prometheus.sink.http.HttpClientTestUtils.httpResponse;
+import static org.apache.flink.connector.prometheus.sink.http.HttpClientTestUtils.postHttpRequest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 class RemoteWriteRetryStrategyTest {
 
@@ -51,11 +50,20 @@ class RemoteWriteRetryStrategyTest {
                     .setMaxRetryCount(Integer.MAX_VALUE)
                     .build();
 
+    /**
+     * Creates an instance of SinkMetrics that does not register any custom metrics to the metric
+     * group.
+     */
+    private SinkMetrics dummySinkMetrics() {
+        return SinkMetrics.registerSinkMetrics(
+                UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+    }
+
     @Test
     public void shouldRetryOnRetriableErrorResponse() {
-        var httpResponse = new BasicHttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-        var httpContext = mock(HttpContext.class);
-        var metrics = mock(SinkMetrics.class);
+        var httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        var httpContext = httpContext();
+        var metrics = dummySinkMetrics();
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
         assertTrue(strategy.retryRequest(httpResponse, 1, httpContext));
@@ -63,9 +71,9 @@ class RemoteWriteRetryStrategyTest {
 
     @Test
     public void shouldNotRetryOnNonRetriableErrorResponse() {
-        var httpResponse = new BasicHttpResponse(HttpStatus.SC_FORBIDDEN);
-        var httpContext = mock(HttpContext.class);
-        var metrics = mock(SinkMetrics.class);
+        var httpResponse = httpResponse(HttpStatus.SC_FORBIDDEN);
+        var httpContext = httpContext();
+        var metrics = dummySinkMetrics();
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
         assertFalse(strategy.retryRequest(httpResponse, 1, httpContext));
@@ -73,9 +81,9 @@ class RemoteWriteRetryStrategyTest {
 
     @Test
     public void shouldRetryIOException() {
-        var httpRequest = mock(HttpRequest.class);
-        var httpContext = mock(HttpContext.class);
-        var metrics = mock(SinkMetrics.class);
+        var httpRequest = postHttpRequest();
+        var httpContext = httpContext();
+        var metrics = dummySinkMetrics();
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
 
@@ -84,9 +92,9 @@ class RemoteWriteRetryStrategyTest {
 
     @Test
     public void shouldNotRetryNonRetriableIOExceptions() {
-        var httpRequest = mock(HttpRequest.class);
-        var httpContext = mock(HttpContext.class);
-        var metrics = mock(SinkMetrics.class);
+        var httpRequest = postHttpRequest();
+        var httpContext = httpContext();
+        var metrics = dummySinkMetrics();
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
 
@@ -106,9 +114,9 @@ class RemoteWriteRetryStrategyTest {
 
     @Test
     public void retryDelayShouldDecreaseExponentiallyWithExecCount() {
-        var httpResponse = mock(HttpResponse.class);
-        var httpContext = mock(HttpContext.class);
-        var counters = mock(SinkMetrics.class);
+        var httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        var httpContext = httpContext();
+        var counters = dummySinkMetrics();
 
         var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, counters);
 
@@ -134,9 +142,9 @@ class RemoteWriteRetryStrategyTest {
                         .setMaxRetryDelayMS(5000)
                         .setMaxRetryCount(Integer.MAX_VALUE)
                         .build();
-        var httpResponse = mock(HttpResponse.class);
-        var httpContext = mock(HttpContext.class);
-        var metrics = mock(SinkMetrics.class);
+        var httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        var httpContext = httpContext();
+        var metrics = dummySinkMetrics();
 
         var strategy = new RemoteWriteRetryStrategy(retryConfiguration, metrics);
 

@@ -19,13 +19,20 @@ package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
 import org.apache.hc.core5.concurrent.FutureCallback;
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpResponse;
+import org.apache.hc.core5.http.Method;
+import org.apache.hc.core5.http.message.BasicHttpRequest;
+import org.apache.hc.core5.http.message.BasicHttpResponse;
+import org.apache.hc.core5.http.protocol.BasicHttpContext;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Test utilities. */
-public class AsyncHttpClientTestUtils {
+/** Test utilities for testing features involving the Apache Http Client. */
+public class HttpClientTestUtils {
 
     public static FutureCallback<SimpleHttpResponse> statusCodeAsserter(int expectedStatusCode) {
 
@@ -70,5 +77,17 @@ public class AsyncHttpClientTestUtils {
                 logger.info("Request Cancelled");
             }
         };
+    }
+
+    public static HttpContext httpContext() {
+        return new BasicHttpContext();
+    }
+
+    public static HttpRequest postHttpRequest() {
+        return new BasicHttpRequest(Method.POST, "/");
+    }
+
+    public static HttpResponse httpResponse(int statusCode) {
+        return new BasicHttpResponse(statusCode);
     }
 }

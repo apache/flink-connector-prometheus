@@ -40,7 +40,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
-import static org.apache.flink.connector.prometheus.sink.http.AsyncHttpClientTestUtils.statusCodeAsserter;
+import static org.apache.flink.connector.prometheus.sink.http.HttpClientTestUtils.statusCodeAsserter;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 

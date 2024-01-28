@@ -37,7 +37,7 @@ public class SinkMetrics {
     }
 
     /** Register all custom sink metrics and return an of this wrapper class. */
-    static SinkMetrics registerSinkMetrics(MetricGroup metrics) {
+    public static SinkMetrics registerSinkMetrics(MetricGroup metrics) {
         // Register all counters
         Counter[] counters = new Counter[SinkCounter.values().length];
         for (SinkCounter metric : SinkCounter.values()) {
