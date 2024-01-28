@@ -64,10 +64,6 @@ public class PrometheusSinkWriterRequestCallbackIT {
     private static final int TIME_SERIES_COUNT = 13;
     private static final long SAMPLE_COUNT = 42;
 
-    private SinkMetrics sinkMetrics(InspectableMetricGroup metricGroup) {
-        return SinkMetrics.registerSinkMetrics(metricGroup);
-    }
-
     private Consumer<List<Types.TimeSeries>> requestResult(List<Types.TimeSeries> emittedResults) {
         return emittedResults::addAll;
     }
@@ -77,7 +73,7 @@ public class PrometheusSinkWriterRequestCallbackIT {
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
 
         InspectableMetricGroup metricGroup = new InspectableMetricGroup();
-        SinkMetrics metrics = sinkMetrics(metricGroup);
+        SinkMetrics metrics = SinkMetrics.registerSinkMetrics(metricGroup);
 
         List<Types.TimeSeries> requeuedResults = new ArrayList<>();
         Consumer<List<Types.TimeSeries>> requestResult = requestResult(requeuedResults);
@@ -143,7 +139,7 @@ public class PrometheusSinkWriterRequestCallbackIT {
                         .build();
 
         InspectableMetricGroup metricGroup = new InspectableMetricGroup();
-        SinkMetrics metrics = sinkMetrics(metricGroup);
+        SinkMetrics metrics = SinkMetrics.registerSinkMetrics(metricGroup);
 
         List<Types.TimeSeries> requeuedResults = new ArrayList<>();
         Consumer<List<Types.TimeSeries>> requestResult = requestResult(requeuedResults);

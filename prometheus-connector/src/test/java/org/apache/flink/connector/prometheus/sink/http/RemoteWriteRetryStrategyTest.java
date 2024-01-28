@@ -50,10 +50,6 @@ class RemoteWriteRetryStrategyTest {
                     .setMaxRetryCount(Integer.MAX_VALUE)
                     .build();
 
-    /**
-     * Creates an instance of SinkMetrics that does not register any custom metrics to the metric
-     * group.
-     */
     private SinkMetrics dummySinkMetrics() {
         return SinkMetrics.registerSinkMetrics(
                 UnregisteredMetricsGroup.createSinkWriterMetricGroup());

@@ -19,6 +19,7 @@ package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.flink.connector.prometheus.sink.SinkMetrics;
 import org.apache.flink.connector.prometheus.sink.WireMockTestUtils;
+import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
@@ -42,7 +43,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.apache.flink.connector.prometheus.sink.http.HttpClientTestUtils.statusCodeAsserter;
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.mock;
 
 /**
  * Test the stack of RemoteWriteRetryStrategy, RetryConfiguration and RemoteWriteResponseClassifier,
@@ -51,18 +51,24 @@ import static org.mockito.Mockito.mock;
 @WireMockTest
 public class AsyncHttpClientRetryIT {
 
+    private SinkMetrics dummySinkMetrics() {
+        return SinkMetrics.registerSinkMetrics(
+                UnregisteredMetricsGroup.createSinkWriterMetricGroup());
+    }
+
     @Test
     public void shouldRetryOn500UpToRetryLimitThenSuccessfullyReturn(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(serverError()));
-        var counters = mock(SinkMetrics.class);
+
+        SinkMetrics metrics = dummySinkMetrics();
 
         int retryLimit = 10;
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
                         WireMockTestUtils.retryConfiguration(retryLimit));
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
                     WireMockTestUtils.buildPostRequest(
                             WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
@@ -81,14 +87,14 @@ public class AsyncHttpClientRetryIT {
     public void shouldRetryOn429UpToRetryLimitThenSuccessfullyReturn(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(status(HttpStatus.SC_TOO_MANY_REQUESTS)));
-        var counters = mock(SinkMetrics.class);
+        SinkMetrics metrics = dummySinkMetrics();
 
         int retryLimit = 10;
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
                         WireMockTestUtils.retryConfiguration(retryLimit));
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
                     WireMockTestUtils.buildPostRequest(
                             WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
@@ -107,12 +113,12 @@ public class AsyncHttpClientRetryIT {
     public void shouldNotRetryOn404ThenSuccessfullyReturn(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(notFound()));
-        var counters = mock(SinkMetrics.class);
+        SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.retryConfiguration(2));
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
                     WireMockTestUtils.buildPostRequest(
                             WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
@@ -129,12 +135,12 @@ public class AsyncHttpClientRetryIT {
     void shouldNotRetryOn200OkThenSuccessfullyReturn(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(ok()));
-        var counters = mock(SinkMetrics.class);
+        SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.retryConfiguration(2));
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(counters)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
                     WireMockTestUtils.buildPostRequest(
                             WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
