@@ -19,14 +19,10 @@ package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.hc.core5.http.HttpHeaders;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 class PrometheusRemoteWriteHttpRequestBuilderTest {
 
@@ -63,17 +59,19 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
 
     @Test
     void shouldInvokeRequestSignerPassingAMutableMap() {
-        PrometheusRequestSigner mockSigner = mock(PrometheusRequestSigner.class);
+        CapturingPrometheusRequestSigner signer = new CapturingPrometheusRequestSigner();
+
         PrometheusRemoteWriteHttpRequestBuilder sut =
-                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, mockSigner, USER_AGENT);
+                new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, signer, USER_AGENT);
 
         sut.buildHttpRequest(REQUEST_BODY);
 
-        ArgumentCaptor<Map<String, String>> headerMapCaptor = ArgumentCaptor.forClass(Map.class);
-        verify(mockSigner).addSignatureHeaders(headerMapCaptor.capture(), eq(REQUEST_BODY));
+        // Verify the signer was invoked once
+        assertEquals(1, signer.getInvocationCount());
 
-        headerMapCaptor
-                .getValue()
-                .put("foo", "bar"); // Check if the map passed to the signer is mutable
+        // Verify the header Map of headers passed to the signer was actually mutable
+        Map<String, String> capturedRequestHeaders = signer.getRequestHeadersAtInvocationCount(1);
+        capturedRequestHeaders.put("foo", "bar");
+        assertEquals("bar", capturedRequestHeaders.get("foo"));
     }
 }
