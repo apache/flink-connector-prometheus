@@ -45,7 +45,11 @@ public class WireMockTestUtils {
                 .build();
     }
 
-    public static RetryConfiguration retryConfiguration(int maxRetryCount) {
+    /**
+     * Create a {@link org.apache.flink.connector.prometheus.sink.http.RetryConfiguration} with the
+     * fastest possible retry and the specified max retry count.
+     */
+    public static RetryConfiguration fastRetryConfiguration(int maxRetryCount) {
         return RetryConfiguration.builder()
                 .setInitialRetryDelayMS(1)
                 .setMaxRetryDelayMS(1)

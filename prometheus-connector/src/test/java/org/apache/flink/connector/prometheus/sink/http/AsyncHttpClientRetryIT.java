@@ -67,7 +67,7 @@ public class AsyncHttpClientRetryIT {
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
-                        WireMockTestUtils.retryConfiguration(retryLimit));
+                        WireMockTestUtils.fastRetryConfiguration(retryLimit));
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
                     WireMockTestUtils.buildPostRequest(
@@ -93,7 +93,7 @@ public class AsyncHttpClientRetryIT {
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
-                        WireMockTestUtils.retryConfiguration(retryLimit));
+                        WireMockTestUtils.fastRetryConfiguration(retryLimit));
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
                     WireMockTestUtils.buildPostRequest(
@@ -116,7 +116,7 @@ public class AsyncHttpClientRetryIT {
         SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
-                new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.retryConfiguration(2));
+                new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.fastRetryConfiguration(2));
 
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
@@ -138,7 +138,7 @@ public class AsyncHttpClientRetryIT {
         SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
-                new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.retryConfiguration(2));
+                new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.fastRetryConfiguration(2));
 
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =

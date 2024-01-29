@@ -23,16 +23,13 @@ import org.apache.hc.core5.concurrent.CallbackContribution;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Wrapper of {@link PrometheusSinkWriter.ResponseCallback} that captures the completion of the
- * Future.
- */
+/** Wrapper of {@link HttpResponseCallback} that captures the completion of the Future. */
 class VerifyableResponseCallback extends CallbackContribution<SimpleHttpResponse> {
 
-    private final PrometheusSinkWriter.ResponseCallback responseCallback;
+    private final HttpResponseCallback responseCallback;
     private final List<SimpleHttpResponse> completedResponses = new ArrayList<>();
 
-    VerifyableResponseCallback(PrometheusSinkWriter.ResponseCallback responseCallback) {
+    VerifyableResponseCallback(HttpResponseCallback responseCallback) {
         super(responseCallback);
         this.responseCallback = responseCallback;
     }

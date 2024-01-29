@@ -31,7 +31,10 @@ import org.apache.hc.core5.util.Timeout;
 import java.io.Serializable;
 import java.util.Optional;
 
-/** Builder for async http client. */
+/**
+ * Builder for async http client that will retry, based on the {@link RemoteWriteRetryStrategy}
+ * specified.
+ */
 public class PrometheusAsyncHttpClientBuilder implements Serializable {
     public static final int DEFAULT_SOCKET_TIMEOUT_MS = 5000;
 
@@ -75,9 +78,7 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
                                         .setDefaultTlsConfig(
                                                 TlsConfig.custom()
                                                         .setVersionPolicy(
-                                                                HttpVersionPolicy
-                                                                        .FORCE_HTTP_1) // Force HTTP
-                                                        // 1.1
+                                                                HttpVersionPolicy.FORCE_HTTP_1)
                                                         .build())
                                         .build())
                         .setIOReactorConfig(ioReactorConfig)
