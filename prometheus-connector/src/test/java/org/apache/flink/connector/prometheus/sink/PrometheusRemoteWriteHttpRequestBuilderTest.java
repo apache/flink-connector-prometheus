@@ -28,7 +28,6 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
 
     private static final String ENDPOINT = "/anything";
     private static final byte[] REQUEST_BODY = {(byte) 0x01};
-
     private static final String USER_AGENT = "MY-USER-AGENT";
 
     @Test

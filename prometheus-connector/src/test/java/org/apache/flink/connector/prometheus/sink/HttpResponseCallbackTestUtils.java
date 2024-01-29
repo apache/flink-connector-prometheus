@@ -24,6 +24,10 @@ import org.junit.jupiter.api.Assertions;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * Utilities for test involving the {@link
  * org.apache.flink.connector.prometheus.sink.HttpResponseCallback}.
@@ -35,8 +39,33 @@ public class HttpResponseCallbackTestUtils {
     }
 
     public static void assertNoReQueuedResult(List<Types.TimeSeries> emittedResults) {
-        Assertions.assertTrue(
+        assertTrue(
                 emittedResults.isEmpty(),
                 emittedResults.size() + " results were re-queued, but none was expected");
+    }
+
+    public static void assertCallbackCompletedOnceWithNoException(
+            VerifyableResponseCallback callback) {
+        int actualCompletionCount = callback.getCompletedResponsesCount();
+        assertEquals(
+                1,
+                actualCompletionCount,
+                "The callback was completed "
+                        + actualCompletionCount
+                        + " times, but once was expected");
+
+        Exception exceptionThrown = callback.getThrownExceptionAtInvocationCount(1);
+        assertNull(exceptionThrown, "An exception was thrown on completed, but none was expected");
+    }
+
+    public static void assertCallbackCompletedOnceWithException(
+            Class<? extends Exception> expectedExceptionClass,
+            VerifyableResponseCallback callback) {
+        Exception thrownException = callback.getThrownExceptionAtInvocationCount(1);
+        Assertions.assertNotNull(
+                thrownException, "Exception on complete was expected, but none was thrown");
+        assertTrue(
+                thrownException.getClass().isAssignableFrom(expectedExceptionClass),
+                "Unexpected exception type thrown on completed");
     }
 }

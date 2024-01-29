@@ -21,13 +21,21 @@ import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
 import org.apache.hc.core5.concurrent.CallbackContribution;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-/** Wrapper of {@link HttpResponseCallback} that captures the completion of the Future. */
-class VerifyableResponseCallback extends CallbackContribution<SimpleHttpResponse> {
+/**
+ * Wrapper of {@link HttpResponseCallback} that captures the completion of the Future, and any
+ * exception thrown.
+ *
+ * <p>Note that any exception thrown by completed() is captured and not rethrown.
+ */
+public class VerifyableResponseCallback extends CallbackContribution<SimpleHttpResponse> {
 
     private final HttpResponseCallback responseCallback;
     private final List<SimpleHttpResponse> completedResponses = new ArrayList<>();
+    private final Map<Integer, Exception> thrownExceptions = new HashMap<>();
 
     VerifyableResponseCallback(HttpResponseCallback responseCallback) {
         super(responseCallback);
@@ -36,13 +44,35 @@ class VerifyableResponseCallback extends CallbackContribution<SimpleHttpResponse
 
     @Override
     public void completed(SimpleHttpResponse response) {
+        int thisInvocationCount = completedResponses.size() + 1;
+
         // Capture the completed response
         completedResponses.add(response);
-        // Forward to the wrapped callback
-        responseCallback.completed(response);
+        // Forward to the wrapped callback, capturing any exception
+        try {
+            responseCallback.completed(response);
+        } catch (Exception ex) {
+            thrownExceptions.put(thisInvocationCount, ex);
+        }
     }
 
     public int getCompletedResponsesCount() {
         return completedResponses.size();
+    }
+
+    public Exception getThrownExceptionAtInvocationCount(int invocationCount) {
+        if (invocationCount <= getCompletedResponsesCount()) {
+            return thrownExceptions.get(invocationCount);
+        } else {
+            return null;
+        }
+    }
+
+    public SimpleHttpResponse getCompletedResponseAtInvocationCount(int invocationCount) {
+        if (invocationCount <= getCompletedResponsesCount()) {
+            return completedResponses.get(invocationCount - 1);
+        } else {
+            return null;
+        }
     }
 }

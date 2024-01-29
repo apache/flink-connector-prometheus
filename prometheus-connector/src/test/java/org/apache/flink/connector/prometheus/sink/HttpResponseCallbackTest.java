@@ -49,15 +49,15 @@ class HttpResponseCallbackTest {
 
     private InspectableMetricGroup metricGroup;
     private SinkMetrics metrics;
-    private List<Types.TimeSeries> requeuedResults;
+    private List<Types.TimeSeries> reQueuedResults;
     Consumer<List<Types.TimeSeries>> requestResults;
 
     @BeforeEach
     void setUp() {
         metricGroup = new InspectableMetricGroup();
         metrics = SinkMetrics.registerSinkMetrics(metricGroup);
-        requeuedResults = new ArrayList<>();
-        requestResults = HttpResponseCallbackTestUtils.getRequestResult(requeuedResults);
+        reQueuedResults = new ArrayList<>();
+        requestResults = HttpResponseCallbackTestUtils.getRequestResult(reQueuedResults);
     }
 
     @Test
@@ -94,7 +94,7 @@ class HttpResponseCallbackTest {
                 NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 
         // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(requeuedResults);
+        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
     }
 
     @Test
@@ -153,7 +153,7 @@ class HttpResponseCallbackTest {
                 NUM_SAMPLES_RETRY_LIMIT_DROPPED);
 
         // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(requeuedResults);
+        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
     }
 
     @Test
@@ -212,7 +212,7 @@ class HttpResponseCallbackTest {
                 NUM_SAMPLES_NON_RETRIABLE_DROPPED);
 
         // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(requeuedResults);
+        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
     }
 
     @Test
@@ -288,7 +288,7 @@ class HttpResponseCallbackTest {
         assertCountersWereNotIncremented(metricGroup, NUM_SAMPLES_OUT, NUM_WRITE_REQUESTS_OUT);
 
         // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(requeuedResults);
+        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
     }
 
     @Test

@@ -63,7 +63,7 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
 
     private final int timeSeriesCount;
     private final long sampleCount;
-    private final Consumer<List<Types.TimeSeries>> requeuedResult;
+    private final Consumer<List<Types.TimeSeries>> reQueuedResult;
     private final SinkMetrics metrics;
     private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
@@ -72,10 +72,10 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
             long sampleCount,
             SinkMetrics metrics,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
-            Consumer<List<Types.TimeSeries>> requeuedResult) {
+            Consumer<List<Types.TimeSeries>> reQueuedResult) {
         this.timeSeriesCount = timeSeriesCount;
         this.sampleCount = sampleCount;
-        this.requeuedResult = requeuedResult;
+        this.reQueuedResult = reQueuedResult;
         this.metrics = metrics;
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
     }
@@ -162,7 +162,7 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
         }
 
         // Never re-queue requests
-        requeuedResult.accept(Collections.emptyList());
+        reQueuedResult.accept(Collections.emptyList());
     }
 
     @Override
