@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.notFound;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
@@ -44,7 +43,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.serverError;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCounterCount;
-import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCounterWasNotIncremented;
+import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCountersWereNotIncremented;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
@@ -72,14 +71,9 @@ public class HttpResponseHandlingBehaviourIT {
     private static final int TIME_SERIES_COUNT = 13;
     private static final long SAMPLE_COUNT = 42;
 
-    private Consumer<List<Types.TimeSeries>> getRequestResult(
-            List<Types.TimeSeries> emittedResults) {
-        return emittedResults::addAll;
-    }
-
     private SimpleHttpRequest buildRequest(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException {
-        return WireMockTestUtils.buildPostRequest(WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
+        return HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
     }
 
     private void serverWillRespond(ResponseDefinitionBuilder responseDefinition) {
@@ -88,7 +82,7 @@ public class HttpResponseHandlingBehaviourIT {
 
     private PrometheusAsyncHttpClientBuilder getHttpClientBuilder(int maxRetryCount) {
         return new PrometheusAsyncHttpClientBuilder(
-                WireMockTestUtils.fastRetryConfiguration(maxRetryCount));
+                HttpTestUtils.fastRetryConfiguration(maxRetryCount));
     }
 
     private VerifyableResponseCallback getResponseCallback(
@@ -101,7 +95,7 @@ public class HttpResponseHandlingBehaviourIT {
                         SAMPLE_COUNT,
                         metrics,
                         errorHandlingBehavior,
-                        getRequestResult(requeuedResults)));
+                        HttpResponseCallbackTestUtils.getRequestResult(requeuedResults)));
     }
 
     @Test
@@ -143,20 +137,20 @@ public class HttpResponseHandlingBehaviourIT {
                                 assertCallbackCompletedOnce(callback);
 
                                 // Verify no result was requeued
-                                assertNoReQueuedResult(requeuedResults);
+                                HttpResponseCallbackTestUtils.assertNoReQueuedResult(
+                                        requeuedResults);
 
                                 // Verify counters have been incremented to the expected values
                                 assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_OUT);
                                 assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_OUT);
 
                                 // Verify other counters have not been incremented
-                                assertCounterWasNotIncremented(metricGroup, NUM_SAMPLES_DROPPED);
-                                assertCounterWasNotIncremented(
-                                        metricGroup, NUM_SAMPLES_RETRY_LIMIT_DROPPED);
-                                assertCounterWasNotIncremented(
-                                        metricGroup, NUM_SAMPLES_NON_RETRIABLE_DROPPED);
-                                assertCounterWasNotIncremented(
-                                        metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+                                assertCountersWereNotIncremented(
+                                        metricGroup,
+                                        NUM_SAMPLES_DROPPED,
+                                        NUM_SAMPLES_RETRY_LIMIT_DROPPED,
+                                        NUM_SAMPLES_NON_RETRIABLE_DROPPED,
+                                        NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
                             });
         }
     }
@@ -202,7 +196,8 @@ public class HttpResponseHandlingBehaviourIT {
                                 assertCallbackCompletedOnce(callback);
 
                                 // Verify no result was re-queued
-                                assertNoReQueuedResult(requeuedResults);
+                                HttpResponseCallbackTestUtils.assertNoReQueuedResult(
+                                        requeuedResults);
 
                                 // Verify counters have been incremented to the expected values
                                 assertCounterCount(
@@ -212,10 +207,11 @@ public class HttpResponseHandlingBehaviourIT {
                                         1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 
                                 // Verify other counters have not been incremented
-                                assertCounterWasNotIncremented(metricGroup, NUM_SAMPLES_OUT);
-                                assertCounterWasNotIncremented(
-                                        metricGroup, NUM_SAMPLES_NON_RETRIABLE_DROPPED);
-                                assertCounterWasNotIncremented(metricGroup, NUM_WRITE_REQUESTS_OUT);
+                                assertCountersWereNotIncremented(
+                                        metricGroup,
+                                        NUM_SAMPLES_OUT,
+                                        NUM_SAMPLES_NON_RETRIABLE_DROPPED,
+                                        NUM_WRITE_REQUESTS_OUT);
                             });
         }
     }
@@ -260,7 +256,8 @@ public class HttpResponseHandlingBehaviourIT {
                                 assertCallbackCompletedOnce(callback);
 
                                 // Verify no result was requeued
-                                assertNoReQueuedResult(requeuedResults);
+                                HttpResponseCallbackTestUtils.assertNoReQueuedResult(
+                                        requeuedResults);
 
                                 // Verify counters have been incremented to the expected values
                                 assertCounterCount(
@@ -272,21 +269,16 @@ public class HttpResponseHandlingBehaviourIT {
                                         1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 
                                 // Verify other counters have not been incremented
-                                assertCounterWasNotIncremented(metricGroup, NUM_SAMPLES_OUT);
-                                assertCounterWasNotIncremented(metricGroup, NUM_WRITE_REQUESTS_OUT);
-                                assertCounterWasNotIncremented(
-                                        metricGroup, NUM_SAMPLES_RETRY_LIMIT_DROPPED);
+                                assertCountersWereNotIncremented(
+                                        metricGroup,
+                                        NUM_SAMPLES_OUT,
+                                        NUM_WRITE_REQUESTS_OUT,
+                                        NUM_SAMPLES_RETRY_LIMIT_DROPPED);
                             });
         }
     }
 
     // TODO test more behaviours
-
-    private static void assertNoReQueuedResult(List<Types.TimeSeries> emittedResults) {
-        Assertions.assertTrue(
-                emittedResults.isEmpty(),
-                emittedResults.size() + " results were re-queued, but none was expected");
-    }
 
     private static void assertCallbackCompletedOnce(VerifyableResponseCallback callback) {
         int actualCompletionCount = callback.getCompletedResponsesCount();

@@ -53,4 +53,11 @@ public class InspectableMetricGroupAssertions {
                 metricGroup.getCounterCount(counterName) == 0,
                 "The counter " + counterName + " has been incremented");
     }
+
+    public static void assertCountersWereNotIncremented(
+            InspectableMetricGroup metricGroup, SinkMetrics.SinkCounter... counters) {
+        for (SinkMetrics.SinkCounter counter : counters) {
+            assertCounterWasNotIncremented(metricGroup, counter);
+        }
+    }
 }

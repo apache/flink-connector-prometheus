@@ -27,8 +27,8 @@ import org.apache.hc.core5.net.URIBuilder;
 
 import java.net.URISyntaxException;
 
-/** Utilities for WireMock integration tests. */
-public class WireMockTestUtils {
+/** Utilities for http request handling tests. */
+public class HttpTestUtils {
     public static String buildRequestUrl(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException {
         return new URIBuilder(wmRuntimeInfo.getHttpBaseUrl())

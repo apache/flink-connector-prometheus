@@ -17,8 +17,8 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
+import org.apache.flink.connector.prometheus.sink.HttpTestUtils;
 import org.apache.flink.connector.prometheus.sink.SinkMetrics;
-import org.apache.flink.connector.prometheus.sink.WireMockTestUtils;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
@@ -67,11 +67,10 @@ public class AsyncHttpClientRetryIT {
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
-                        WireMockTestUtils.fastRetryConfiguration(retryLimit));
+                        HttpTestUtils.fastRetryConfiguration(retryLimit));
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
-                    WireMockTestUtils.buildPostRequest(
-                            WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
+                    HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_SERVER_ERROR));
 
             await().untilAsserted(
@@ -93,11 +92,10 @@ public class AsyncHttpClientRetryIT {
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
-                        WireMockTestUtils.fastRetryConfiguration(retryLimit));
+                        HttpTestUtils.fastRetryConfiguration(retryLimit));
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
-                    WireMockTestUtils.buildPostRequest(
-                            WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
+                    HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_TOO_MANY_REQUESTS));
 
             await().untilAsserted(
@@ -116,12 +114,11 @@ public class AsyncHttpClientRetryIT {
         SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
-                new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.fastRetryConfiguration(2));
+                new PrometheusAsyncHttpClientBuilder(HttpTestUtils.fastRetryConfiguration(2));
 
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
-                    WireMockTestUtils.buildPostRequest(
-                            WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
+                    HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_NOT_FOUND));
 
             await().untilAsserted(
@@ -138,12 +135,11 @@ public class AsyncHttpClientRetryIT {
         SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
-                new PrometheusAsyncHttpClientBuilder(WireMockTestUtils.fastRetryConfiguration(2));
+                new PrometheusAsyncHttpClientBuilder(HttpTestUtils.fastRetryConfiguration(2));
 
         try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
             SimpleHttpRequest request =
-                    WireMockTestUtils.buildPostRequest(
-                            WireMockTestUtils.buildRequestUrl(wmRuntimeInfo));
+                    HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_OK));
 
             await().untilAsserted(
