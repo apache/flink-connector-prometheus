@@ -15,7 +15,7 @@
  *  limitations under the License.
  */
 
-package com.amazonaws.services.managedflink.domain;
+package org.apache.flink.connector.prometheus.examples;
 
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
 

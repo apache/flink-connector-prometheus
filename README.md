@@ -13,8 +13,8 @@ Learn more about Flink at [https://flink.apache.org/](https://flink.apache.org/)
 This repository contains the following modules
 
 * [Prometheus Connector](./prometheus-connector): Flink Prometheus Connector implementation; supports optional request signer
+* [Sample application](./example-datastream-job): Sample application showing the usage of the connector with DataStream API. It also demonstrates how to configure the request signer. 
 * [Amazon Managed Prometheus Request Signer](./amp-request-signer): Implementation of request signer for Amazon Managed Prometheus (AMP)
-* [Sample application](./msf-amp-example): Sample application using the Prometheus Connector; designed to run locally and on Amazon Managed Service for Apache Flink, and write to Amazon Managed Prometheus
 
 ## Building the Apache Flink Prometheus Connector from Source
 

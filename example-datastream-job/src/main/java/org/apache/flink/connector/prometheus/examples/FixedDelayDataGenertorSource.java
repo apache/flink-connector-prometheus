@@ -15,7 +15,7 @@
  *  limitations under the License.
  */
 
-package com.amazonaws.services.managedflink.source;
+package org.apache.flink.connector.prometheus.examples;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.GenericTypeInfo;
@@ -26,14 +26,15 @@ import org.apache.flink.util.Preconditions;
 import java.util.function.Supplier;
 
 /** Simple data generator, generating records with a fixed delay. */
-public class FixedDelaySource<T> implements SourceFunction<T>, ResultTypeQueryable<T> {
+public class FixedDelayDataGenertorSource<T> implements SourceFunction<T>, ResultTypeQueryable<T> {
     private volatile boolean isRunning = true;
 
     private final Supplier<T> eventGenerator;
     private final long pauseMillis;
     private final Class<T> payloadClass;
 
-    public FixedDelaySource(Class<T> payloadClass, Supplier<T> eventGenerator, long pauseMillis) {
+    public FixedDelayDataGenertorSource(
+            Class<T> payloadClass, Supplier<T> eventGenerator, long pauseMillis) {
         Preconditions.checkArgument(
                 pauseMillis > 0,
                 "Pause between time-series must be > 0"); // If zero, the source may generate

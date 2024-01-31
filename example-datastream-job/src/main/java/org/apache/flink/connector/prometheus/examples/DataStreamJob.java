@@ -15,12 +15,13 @@
  *  limitations under the License.
  */
 
-package com.amazonaws.services.managedflink;
+package org.apache.flink.connector.prometheus.examples;
 
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
+import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.connector.prometheus.sink.PrometheusSink;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeriesLabelsAndMetricNameKeySelector;
@@ -30,124 +31,84 @@ import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorH
 import org.apache.flink.connector.prometheus.sink.http.RetryConfiguration;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.environment.LocalStreamEnvironment;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
-import com.amazonaws.services.kinesisanalytics.runtime.KinesisAnalyticsRuntime;
-import com.amazonaws.services.managedflink.domain.SimpleInstanceMetricsTimeSeriesGenerator;
-import com.amazonaws.services.managedflink.source.FixedDelaySource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
 import java.util.function.Supplier;
 
-/**
- * Test application, designed to run on Amazon Managed Service for Apache Flink and write to Amazon
- * Managed Prometheus.
- *
- * <p>To run locally the application expects this cli args: --Region &lg;region&gt;
- * --PrometheusWriteUrl &lg;prometheus-write-url&gt; (optional) --webUI
- */
+/** Test application testing the Prometheus sink connector. */
 public class DataStreamJob {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataStreamJob.class);
 
-    private static final String APPLICATION_CONFIG_GROUP = "FlinkApplicationProperties";
+    public static void main(String[] args) throws Exception {
+        StreamExecutionEnvironment env;
 
-    private static boolean isLocal(StreamExecutionEnvironment env) {
-        return env instanceof LocalStreamEnvironment;
-    }
-
-    private static ParameterTool loadApplicationParameters(
-            String[] args, StreamExecutionEnvironment env) throws IOException {
-        if (isLocal(env)) {
-            return ParameterTool.fromArgs(args);
-        } else {
-            Map<String, Properties> applicationProperties =
-                    KinesisAnalyticsRuntime.getApplicationProperties();
-            Properties flinkProperties = applicationProperties.get(APPLICATION_CONFIG_GROUP);
-            if (flinkProperties == null) {
-                throw new RuntimeException(
-                        "Unable to load FlinkApplicationProperties properties from the Kinesis Analytics Runtime.");
-            }
-            Map<String, String> map = new HashMap<>(flinkProperties.size());
-            flinkProperties.forEach((k, v) -> map.put((String) k, (String) v));
-            return ParameterTool.fromMap(map);
-        }
-    }
-
-    // Conditionally return execution environment with WebUI
-    private static StreamExecutionEnvironment executionEnvironment(String[] args) {
+        // Conditionally return a local execution environment with
         if (args.length > 0 && Arrays.stream(args).anyMatch("--webUI"::equalsIgnoreCase)) {
             Configuration conf = new Configuration();
             conf.set(
                     ConfigOptions.key("rest.flamegraph.enabled").booleanType().noDefaultValue(),
                     true);
-            return StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
+            env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
         } else {
-            return StreamExecutionEnvironment.getExecutionEnvironment();
-        }
-    }
-
-    public static void main(String[] args) throws Exception {
-        StreamExecutionEnvironment env = executionEnvironment(args);
-
-        final ParameterTool applicationParameters = loadApplicationParameters(args, env);
-
-        if (isLocal(env)) {
-            // Checkpointing and parallelism are set by MSF when running on AWS
-            env.setParallelism(2);
-            env.disableOperatorChaining();
+            env = StreamExecutionEnvironment.getExecutionEnvironment();
         }
 
-        String prometheusRegion = applicationParameters.get("Region");
-        String prometheusRemoteWriteUrl = applicationParameters.get("PrometheusWriteUrl");
+        env.setParallelism(2);
 
-        int generatorMinSamplesPerTimeSeries =
-                applicationParameters.getInt("GeneratorMinNrOfSamplesPerTimeSeries", 2);
-        int generatorMaxSamplesPerTimeSeries =
-                applicationParameters.getInt("GeneratorMaxNrOfSamplesPerTimeSeries", 10);
-        int generatorNumberOfDummyInstances =
-                applicationParameters.getInt("GeneratorNumberOfDummyInstances", 60);
-        long generatorPauseBetweenTimeSeriesMs =
-                applicationParameters.getLong("GeneratorPauseBetweenTimeSeriesMs", 100);
-        int maxRequestRetryCount =
-                applicationParameters.getInt("MaxRequestRetryCount", Integer.MAX_VALUE);
+        ParameterTool applicationParameters = ParameterTool.fromArgs(args);
 
-        LOGGER.info(
-                "Sink connector configuration:"
-                        + "\n\t\tPrometheus URL:{}\n\t\tPrometheus Region:{}",
-                prometheusRemoteWriteUrl,
-                prometheusRegion);
+        // Prometheus remote-write URL
+        String prometheusRemoteWriteUrl = applicationParameters.get("prometheusRemoteWriteUrl");
+        LOGGER.info("Prometheus URL:{}", prometheusRemoteWriteUrl);
 
+        // Optionally configure Amazon Managed Prometheus request signer
+        PrometheusRequestSigner requestSigner = null;
+        String ampAWSRegion = applicationParameters.get("awsRegion");
+        if (ampAWSRegion != null) {
+            requestSigner =
+                    new AmazonManagedPrometheusWriteRequestSigner(
+                            prometheusRemoteWriteUrl, ampAWSRegion);
+            LOGGER.info(
+                    "Enable Amazon Managed Prometheus request-signer, region: {}", ampAWSRegion);
+        }
+
+        // Configure data generator
+        int generatorMinSamplesPerTimeSeries = 1;
+        int generatorMaxSamplesPerTimeSeries = 10;
+        int generatorNumberOfDummyInstances = 5;
+        long generatorPauseBetweenTimeSeriesMs = 100;
         LOGGER.info(
                 "Data Generator configuration:"
                         + "\n\t\tMin samples per time series:{}\n\t\tMax samples per time series:{}\n\t\tPause between time series:{} ms"
-                        + "\n\t\tNumber of dummy sources:{}",
+                        + "\n\t\tNumber of dummy instances:{}",
                 generatorMinSamplesPerTimeSeries,
                 generatorMaxSamplesPerTimeSeries,
                 generatorPauseBetweenTimeSeriesMs,
                 generatorNumberOfDummyInstances);
+
         Supplier<PrometheusTimeSeries> eventGenerator =
                 new SimpleInstanceMetricsTimeSeriesGenerator(
                                 generatorMinSamplesPerTimeSeries,
                                 generatorMaxSamplesPerTimeSeries,
                                 generatorNumberOfDummyInstances)
                         .generator();
+
         SourceFunction<PrometheusTimeSeries> source =
-                new FixedDelaySource<>(
+                new FixedDelayDataGenertorSource<>(
                         PrometheusTimeSeries.class,
                         eventGenerator,
                         generatorPauseBetweenTimeSeriesMs);
 
         DataStream<PrometheusTimeSeries> prometheusTimeSeries = env.addSource(source);
 
-        // Setting all config, even if default values
+        // Build the sink showing all supported configuration parameters.
+        // It is not mandatory to specify all configurations, as they will fall back to the default
+        // value
         AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> sink =
                 PrometheusSink.builder()
                         .setMaxBatchSizeInSamples(500)
@@ -157,13 +118,11 @@ public class DataStreamJob {
                                 RetryConfiguration.builder()
                                         .setInitialRetryDelayMS(30L)
                                         .setMaxRetryDelayMS(5000L)
-                                        .setMaxRetryCount(maxRequestRetryCount)
+                                        .setMaxRetryCount(100)
                                         .build())
                         .setSocketTimeoutMs(5000)
                         .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)
-                        .setRequestSigner(
-                                new AmazonManagedPrometheusWriteRequestSigner(
-                                        prometheusRemoteWriteUrl, prometheusRegion))
+                        .setRequestSigner(requestSigner)
                         .setErrorHandlingBehaviourConfiguration(
                                 SinkWriterErrorHandlingBehaviorConfiguration.builder()
                                         .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
