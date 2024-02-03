@@ -33,7 +33,6 @@ under the License.
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <flink.version>1.17.0</flink.version>
     </properties>
 
     <dependencies>
@@ -47,7 +46,6 @@ under the License.
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-            <version>1.12.570</version>
         </dependency>
 
         <dependency>

@@ -35,7 +35,6 @@ under the License.
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <flink.version>1.17.0</flink.version>
         <protobuf.version>3.22.2</protobuf.version>
         <apache.httpclient.version>5.2.1</apache.httpclient.version>
     </properties>
