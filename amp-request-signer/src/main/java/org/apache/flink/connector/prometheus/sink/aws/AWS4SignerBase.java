@@ -136,8 +136,6 @@ public abstract class AWS4SignerBase {
     /**
      * Returns the canonical request string to go into the signer process; this consists of several
      * canonical sub-parts.
-     *
-     * @return
      */
     protected static String getCanonicalRequest(
             URL endpoint,

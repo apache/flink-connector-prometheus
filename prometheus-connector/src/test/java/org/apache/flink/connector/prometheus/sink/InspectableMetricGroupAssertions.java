@@ -40,7 +40,7 @@ public class InspectableMetricGroupAssertions {
                 actualCounterCount,
                 "The counter "
                         + counterName
-                        + " was expected tp be "
+                        + " was expected to be "
                         + expectedCounterCount
                         + " but was "
                         + actualCounterCount);

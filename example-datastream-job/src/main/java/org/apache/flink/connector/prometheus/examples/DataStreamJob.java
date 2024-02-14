@@ -18,8 +18,6 @@
 package org.apache.flink.connector.prometheus.examples;
 
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.configuration.ConfigOptions;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.connector.prometheus.sink.PrometheusSink;
@@ -37,7 +35,6 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.function.Supplier;
 
 /** Test application testing the Prometheus sink connector. */
@@ -45,19 +42,11 @@ public class DataStreamJob {
     private static final Logger LOGGER = LoggerFactory.getLogger(DataStreamJob.class);
 
     public static void main(String[] args) throws Exception {
-        StreamExecutionEnvironment env;
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-        // Conditionally return a local execution environment with
-        if (args.length > 0 && Arrays.stream(args).anyMatch("--webUI"::equalsIgnoreCase)) {
-            Configuration conf = new Configuration();
-            conf.set(
-                    ConfigOptions.key("rest.flamegraph.enabled").booleanType().noDefaultValue(),
-                    true);
-            env = StreamExecutionEnvironment.createLocalEnvironmentWithWebUI(conf);
-        } else {
-            env = StreamExecutionEnvironment.getExecutionEnvironment();
-        }
-
+        // Setting parallelism > 1 to demonstrate usage of
+        // PrometheusTimeSeriesLabelsAndMetricNameKeySelector
+        // to parallelize writers without causing any out-of-order write rejection from Prometheus
         env.setParallelism(2);
 
         ParameterTool applicationParameters = ParameterTool.fromArgs(args);
@@ -80,26 +69,29 @@ public class DataStreamJob {
         // Configure data generator
         int generatorMinSamplesPerTimeSeries = 1;
         int generatorMaxSamplesPerTimeSeries = 10;
-        int generatorNumberOfDummyInstances = 5;
+        int generatorNumberOfSources = 10;
+        short generatorNumberOfMetricsPerSource = 5;
         long generatorPauseBetweenTimeSeriesMs = 100;
         LOGGER.info(
                 "Data Generator configuration:"
                         + "\n\t\tMin samples per time series:{}\n\t\tMax samples per time series:{}\n\t\tPause between time series:{} ms"
-                        + "\n\t\tNumber of dummy instances:{}",
+                        + "\n\t\tNumber of sources:{}\n\t\tNumber of metrics per source:{}",
                 generatorMinSamplesPerTimeSeries,
                 generatorMaxSamplesPerTimeSeries,
                 generatorPauseBetweenTimeSeriesMs,
-                generatorNumberOfDummyInstances);
+                generatorNumberOfSources,
+                generatorNumberOfMetricsPerSource);
 
         Supplier<PrometheusTimeSeries> eventGenerator =
-                new SimpleInstanceMetricsTimeSeriesGenerator(
+                new SimpleCpuAndMemoryMetricTimeSeriesGenerator(
                                 generatorMinSamplesPerTimeSeries,
                                 generatorMaxSamplesPerTimeSeries,
-                                generatorNumberOfDummyInstances)
+                                generatorNumberOfSources,
+                                generatorNumberOfMetricsPerSource)
                         .generator();
 
         SourceFunction<PrometheusTimeSeries> source =
-                new FixedDelayDataGenertorSource<>(
+                new FixedDelayDataGeneratorSource<>(
                         PrometheusTimeSeries.class,
                         eventGenerator,
                         generatorPauseBetweenTimeSeriesMs);

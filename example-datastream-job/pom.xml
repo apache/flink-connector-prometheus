@@ -86,14 +86,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- For Flink local development -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-runtime-web</artifactId>
-            <version>${flink.version}</version>
-            <scope>provided</scope><!-- Assume when running in the IDE all 'provided' dependencies are included -->
-        </dependency>
-
         <!-- test -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

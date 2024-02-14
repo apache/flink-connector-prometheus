@@ -36,8 +36,8 @@ To help sending well-formed data to the sink, the connector expect [`PrometheusT
 
 Each `PrometheusTimeSeries` instance maps 1-to-1 to a [remote-write `TimeSeries`](https://prometheus.io/docs/concepts/remote_write_spec/#protocol). Each object contains:
 * exactly one `metericName`, mapped to the special  `__name__` label
-* optionally, any number of additional labels { k: String, v:String }
-* one or more `Samples` { value: double, timestamp: long } - must be in timestamp order
+* optionally, any number of additional labels { k: String, v:String } - MUST BE IN ORDER BY KEY
+* one or more `Samples` { value: double, timestamp: long } - MUST BE IN TIMESTAMP ORDER
 
 `PrometheusTimeSeries` provides a builder interface.
 

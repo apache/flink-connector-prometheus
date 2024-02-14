@@ -22,53 +22,52 @@ import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
 import org.apache.commons.lang3.RandomUtils;
 
 import java.io.Serializable;
-import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
  * Very simple dummy TimeSeries generator, generating random `CPU` and `Memory` samples for a given
- * number of instances.
+ * number of sources.
  *
  * <p>Sample timestamp is always the current system time. The value is random, between 0 and 1
  */
-public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
+public class SimpleCpuAndMemoryMetricTimeSeriesGenerator implements Serializable {
 
-    private final int numberOfDummyInstances;
+    private final int numberOfSources;
     private final int minNrOfSamples;
     private final int maxNrOfSamples;
+    private final short numberOfMetricsPerSource;
 
-    public SimpleInstanceMetricsTimeSeriesGenerator(
-            int minNrOfSamples, int maxNrOfSamples, int numberOfDummyInstances) {
-        this.numberOfDummyInstances = numberOfDummyInstances;
+    public SimpleCpuAndMemoryMetricTimeSeriesGenerator(
+            int minNrOfSamples,
+            int maxNrOfSamples,
+            int numberOfSources,
+            short numberOfMetricsPerSource) {
+        this.numberOfSources = numberOfSources;
         this.minNrOfSamples = minNrOfSamples;
         this.maxNrOfSamples = maxNrOfSamples;
+        this.numberOfMetricsPerSource = numberOfMetricsPerSource;
     }
 
-    private String dummyInstanceId(int number) {
-        return "I" + String.format("%010d", number);
+    private String randomMetricName() {
+        short metricNr = (short) (RandomUtils.nextDouble(0, 1) * numberOfMetricsPerSource);
+        return String.format("M%05d", metricNr);
+    }
+
+    private String randomSourceId() {
+        int sourceId = RandomUtils.nextInt(0, numberOfSources);
+        return String.format("S%010d", sourceId);
     }
 
     private PrometheusTimeSeries nextTimeSeries(int minNrOfSamples, int maxNrOfSamples) {
-        return nextTimeSeries(minNrOfSamples, maxNrOfSamples, 1, 0);
-    }
-
-    private PrometheusTimeSeries nextTimeSeries(
-            int minNrOfSamples,
-            int maxNrOfSamples,
-            int numberOfParallelSubTasks,
-            int subTaskIndex) {
-        int sourcesPerSubTask = numberOfDummyInstances / numberOfParallelSubTasks;
-        int dummySourceIndex =
-                sourcesPerSubTask * subTaskIndex + RandomUtils.nextInt(0, sourcesPerSubTask);
-        String instanceId = dummyInstanceId(dummySourceIndex);
+        String instanceId = randomSourceId();
 
         int nrOfSamples = RandomUtils.nextInt(minNrOfSamples, maxNrOfSamples + 1);
-        String metricName = (RandomUtils.nextDouble(0, 1) < 0.5) ? "CPU" : "Memory";
+        String metricName = randomMetricName();
 
         PrometheusTimeSeries.Builder builder =
                 PrometheusTimeSeries.builder()
                         .withMetricName(metricName)
-                        .addLabel("InstanceId", instanceId);
+                        .addLabel("SourceID", instanceId);
         for (int i = 0; i < nrOfSamples; i++) {
             double value = RandomUtils.nextDouble(0, 1);
             builder.addSample(value, System.currentTimeMillis());
@@ -79,15 +78,5 @@ public class SimpleInstanceMetricsTimeSeriesGenerator implements Serializable {
     public Supplier<PrometheusTimeSeries> generator() {
         return (Supplier<PrometheusTimeSeries> & Serializable)
                 () -> nextTimeSeries(minNrOfSamples, maxNrOfSamples);
-    }
-
-    public BiFunction<Integer, Integer, PrometheusTimeSeries> parallelGenerator() {
-        return (BiFunction<Integer, Integer, PrometheusTimeSeries> & Serializable)
-                (numberOfParallelSubTasks, subTaskIndex) ->
-                        nextTimeSeries(
-                                minNrOfSamples,
-                                maxNrOfSamples,
-                                numberOfParallelSubTasks,
-                                subTaskIndex);
     }
 }

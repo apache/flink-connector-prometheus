@@ -27,7 +27,6 @@ import org.apache.hc.core5.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.rmi.UnexpectedException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -252,7 +251,7 @@ class HttpResponseCallbackTest {
                         errorHandlingBehavior,
                         requestResults);
 
-        Exception ex = new UnexpectedException("Dummy exceptions");
+        Exception ex = new UnsupportedOperationException("Dummy exceptions");
 
         assertThrows(
                 PrometheusSinkWriteException.class,
@@ -276,7 +275,7 @@ class HttpResponseCallbackTest {
                         errorHandlingBehavior,
                         requestResults);
 
-        Exception ex = new UnexpectedException("Dummy exceptions");
+        Exception ex = new UnsupportedOperationException("Dummy exceptions");
 
         callback.failed(ex);
 

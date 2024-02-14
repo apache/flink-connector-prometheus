@@ -21,6 +21,7 @@ import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.util.Preconditions;
 
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSSessionCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.util.BinaryUtils;
@@ -37,7 +38,7 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
     private final String awsRegion;
 
     /**
-     * Constructor.
+     * Creates a signer instance using DefaultAWSCredentialsProviderChain.
      *
      * @param remoteWriteUrl URL of the remote-write endpoint
      * @param awsRegion Region of the AMP workspace
@@ -69,13 +70,12 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
     public void addSignatureHeaders(Map<String, String> requestHeaders, byte[] requestBody) {
         byte[] contentHash = AWS4SignerBase.hash(requestBody);
         String contentHashString = BinaryUtils.toHex(contentHash);
-        requestHeaders.put(
-                "x-amz-content-sha256",
-                contentHashString); // this header must be included before generating the
-        // Authorization header
 
-        DefaultAWSCredentialsProviderChain credsChain = new DefaultAWSCredentialsProviderChain();
-        AWSCredentials awsCreds = credsChain.getCredentials();
+        // x-amz-content-sha256 must be included before generating the Authorization header
+        requestHeaders.put("x-amz-content-sha256", contentHashString);
+
+        AWSCredentialsProvider awsCredProvider = new DefaultAWSCredentialsProviderChain();
+        AWSCredentials awsCreds = awsCredProvider.getCredentials();
         String sessionToken =
                 (awsCreds instanceof AWSSessionCredentials)
                         ? ((AWSSessionCredentials) awsCreds).getSessionToken()
