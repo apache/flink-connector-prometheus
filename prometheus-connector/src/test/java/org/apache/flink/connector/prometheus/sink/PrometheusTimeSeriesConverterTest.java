@@ -63,8 +63,8 @@ class PrometheusTimeSeriesConverterTest {
         var input =
                 PrometheusTimeSeries.builder()
                         .withMetricName("metric-1")
-                        .addLabel("dimension-A", "value-A")
-                        .addLabel("dimension-B", "value-B")
+                        .addLabel("dimensionA", "value-A")
+                        .addLabel("dimensionB", "value-B")
                         .addSample(42, 1L)
                         .build();
 

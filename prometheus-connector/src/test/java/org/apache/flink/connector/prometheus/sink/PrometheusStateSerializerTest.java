@@ -40,7 +40,7 @@ class PrometheusStateSerializerTest {
     private static PrometheusTimeSeries getTestTimeSeries(int i) {
         return PrometheusTimeSeries.builder()
                 .withMetricName("metric-name")
-                .addLabel("dimension-a", "value-" + i)
+                .addLabel("dimensionA", "value-" + i)
                 .addSample(i + 42.0, i + 1L)
                 .addSample(i + 3.14, i + 2L)
                 .build();
