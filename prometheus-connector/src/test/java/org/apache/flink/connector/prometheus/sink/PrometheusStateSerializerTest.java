@@ -46,10 +46,14 @@ class PrometheusStateSerializerTest {
                 .build();
     }
 
-    // This method uses the same implementation as PrometheusSinkWriter.getSizeInBytes() to extract
-    // the requestEntry "size" (i.e. the number of Samples). This is the "size" used in
-    // RequestEntryWrapper
-    // see {@link AsyncSinkWriterStateSerializer#serialize(BufferedRequestState)}
+    /**
+     * This method uses the same implementation as PrometheusSinkWriter.getSizeInBytes() to extract
+     * the requestEntry "size" (i.e. the number of Samples). This is the "size" used in
+     * RequestEntryWrapper.
+     *
+     * <p>See
+     * https://github.com/apache/flink/blob/69e812688b43be9a0c4f79e6af81bc2d1d8a873e/flink-connectors/flink-connector-base/src/main/java/org/apache/flink/connector/base/sink/writer/AsyncSinkWriterStateSerializer.java#L60
+     */
     private static int getRequestSize(Types.TimeSeries requestEntry) {
         return requestEntry.getSamplesCount();
     }

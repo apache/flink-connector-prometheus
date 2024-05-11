@@ -10,8 +10,11 @@ Due to the strict [ordering](https://prometheus.io/docs/concepts/remote_write_sp
 of Prometheus Remote-Write, the sink guarantees that input data are written to Prometheus only if input data are in order and well-formed.
 
 For efficiency, the connector does not do any validation.
-If input is out of order or malformed, the write request is rejected by Prometheus and data is discarded by the sink.
-The connector will log a warning and count rejected data in custom metrics, but the data is discarded.
+If input is out of order or malformed, **the write request is rejected by Prometheus**. 
+If the write request is rejected, depending on the configured [error handling behaviour](#error-handling-behavior) for 
+"Prometheus non-retriable errors", the sink will either throw an exception (`FAIL`, default behavior) or discard the offending 
+request and continue (`DISCARD_AND_CONTINUE`). See [error handling behaviour](#error-handling-behavior), below, for further details.
+
 
 The sink receives as input time-series, each containing one or more samples. 
 To optimise the write throughput, input time-series are batched, in the order they are received, and written with a single write-request.
@@ -27,8 +30,7 @@ It is responsibility of the application sending the data to the sink in the corr
 1. Input time-series must be well-formed, e.g. only valid and non-duplicated labels, 
 samples in timestamp order (see [Labels and Ordering](https://prometheus.io/docs/concepts/remote_write_spec/#labels) in Prometheus Remote-Write specs).
 2. Input time-series with identical labels are sent to the sink in timestamp order.
-3. If sink parallelism > 1 is used, the input stream must be partitioned so that all time-series with identical labels go to the same sink subtask. A `KeySelector` is provided to partition input correctly (see [Partitioning](#partitioning), below). 
-
+3. If sink parallelism > 1 is used, the input stream must be partitioned so that all time-series with identical labels go to the same sink subtask. A `KeySelector` is provided to partition input correctly (see [Partitioning](#partitioning), below).
 
 #### Sink input objects
 
@@ -48,7 +50,7 @@ Each `PrometheusTimeSeries` instance maps 1-to-1 to a [remote-write `TimeSeries`
 PrometheusTimeSeries.Builder tsBuilder = PrometheusTimeSeries.builder()
     .withMetricName("CPU") // mapped to  `__name__` label
     .addLabel("InstanceID", instanceId)
-    .addLabel("AcccountID", accountId);
+    .addLabel("AccountID", accountId);
     
 for(Tuple2<Double, Long> sample : samples) {
     tsBuilder.addSample(sample.f0, sample.f1);
@@ -57,8 +59,19 @@ for(Tuple2<Double, Long> sample : samples) {
 PrometheusTimeSeries ts = tsBuilder.build();
 ```
 
+#### Input data validation
 
-**Important**: for efficiency, the builder does reorder the samples. It is responsibility of the application to **add samples in timestamp order**.
+Prometheus imposes strict constraints to the content sent to remote-write, including label format and ordering, sample time ordering ecc.
+
+For efficiency, the sink **does not do any validation or reordering** of the input. It's responsibility
+of the application ensuring that input is well-formed.
+
+Any malformed data will be rejected on write to Prometheus. Depending on the [error handling behaviours](#error-handling-behavior) 
+configured, the sink will throw an exception stopping the job (default), or drop the entire write-request, log the fact, 
+and continue.
+
+For complete details about these constraints, refer to the [remote-write specifications](https://prometheus.io/docs/concepts/remote_write_spec/).
+
 
 ### Batching, blocking writes and retry
 
@@ -73,15 +86,17 @@ the sink retries 5xx and 429 responses. Retrying is blocking, to retain sample o
 The exponential backoff starts with an initial delay (default 30 ms) and increases it exponentially up to a max retry 
 delay (default 5 sec). It continues retrying until the max number of retries is reached (default reties forever).
 
-On non-retriable error response (4xx, except 429, non retryable exceptions), or on reaching the retry limit, 
-**the entire write-request**, containing the batch of time-series, **is dropped**.
+On non-retriable error response (4xx, except 429, non retryable exceptions), or on reaching the retry limit, depending on 
+the configured [error handling behaviour](#error-handling-behavior) for "Max retries exceeded", the sink will either throw 
+an exception (`FAIL`, default behaviour), or **discard the entire write-request**, log a warning and continue. See 
+[error handling behaviour](#error-handling-behavior), below, for further details.
 
-Every dropped request is logged at WARN level, including the reason provided by the remote-write endpoint.
+
 
 ### Initializing the sink
 
 Example of sink initialisation (for documentation purposes, we are setting all parameters to their default values):
-
+Sink 
 ```java
 PrometheusSink sink =  PrometheusSink.builder()
     .setMaxBatchSizeInSamples(500)              // Batch size (write-request size), in samples (default: 500)
@@ -96,10 +111,12 @@ PrometheusSink sink =  PrometheusSink.builder()
     .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)  // Remote-write URL
     .setRequestSigner(new AmazonManagedPrometheusWriteRequestSigner(prometheusRemoteWriteUrl, prometheusRegion)) // Optional request signed (AMP request signer in this example)
     .setErrorHandlingBehaviourConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
-         .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
+         // Error handling behaviors. See description below, for more details. All behaviors default to FAIL   
+         .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)  
          .onMaxRetryExceeded(OnErrorBehavior.FAIL)
          .onHttpClientIOFail(OnErrorBehavior.FAIL)
          .build())
+    .setMetricGroupName("Prometheus")           // Customizable metric-group suffix (default: "Prometheus")
     .build();
 ```
 
@@ -185,5 +202,18 @@ The sink exposes custom metrics, counting the samples and write-requests (batche
 * `numWriteRequestsPermanentlyFailed` number of write requests permanently failed, due to any reasons (non retryable, max nr of retries)
 
 **Note**: the `numByteSend` does not measure the number of bytes, due to an internal limitation of the base sink. 
-This metric should be ignored and you should rely on `numSamplesOut` and `numWriteRequestsOut` instead.
+This metric should be ignored, and you should rely on `numSamplesOut` and `numWriteRequestsOut` instead.
 
+#### Metrics scope
+
+These custom metrics are exposed on partially customizable scope.
+By default, the scope is `Sink__Writer.Prometheus`. It can be customized to any `Sink__Writer.<metric-group>`.
+
+### Protobuf classes
+
+The connector includes classes for Protobuf objects, [Remote](src/main/java/org/apache/flink/connector/prometheus/sink/prometheus/Remote.java),
+[Types](src/main/java/org/apache/flink/connector/prometheus/sink/prometheus/Types.java), 
+and [GoGoProtos](src/main/java/org/apache/flink/connector/prometheus/sink/protobuf/GoGoProtos.java).
+
+The [*.proto](src/main/proto) files are provided for reference only. Protobuf binaries are required to re-generate the Java classe.
+Please refer to [Protobuf documentation](https://protobuf.dev/getting-started/javatutorial/#compiling-protocol-buffers).

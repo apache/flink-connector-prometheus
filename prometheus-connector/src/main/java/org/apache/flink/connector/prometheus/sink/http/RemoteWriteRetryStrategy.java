@@ -17,7 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
-import org.apache.flink.connector.prometheus.sink.SinkMetrics;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 
 import org.apache.hc.client5.http.HttpRequestRetryStrategy;
 import org.apache.hc.core5.http.HttpRequest;
@@ -34,39 +34,60 @@ import java.io.InterruptedIOException;
 import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/** Retry strategy for the http client. */
+/**
+ * Retry strategy for the http client.
+ *
+ * <p>Based on the http status code returned or the exception thrown, this strategy either retries
+ * with an exponential backoff strategy or immediately fail.
+ *
+ * <p>Response status codes are classified as retriable or non-retriable using {@link
+ * RemoteWriteResponseClassifier}.
+ *
+ * <p>All {@link IOException} are considered retriable, except for {@link InterruptedIOException},
+ * {@link UnknownHostException}, {@link ConnectException}, {@link NoRouteToHostException}, and
+ * {@link SSLException}.
+ */
 public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteWriteRetryStrategy.class);
 
-    private static final List<Class<? extends IOException>> NON_RETRIABLE_EXCEPTIONS =
-            List.of(
-                    InterruptedIOException.class,
-                    UnknownHostException.class,
-                    ConnectException.class,
-                    NoRouteToHostException.class,
-                    SSLException.class);
+    /** List of exceptions considered non-recoverable (non-retriable). */
+    private static final List<Class<? extends IOException>> NON_RECOVERABLE_EXCEPTIONS =
+            Collections.unmodifiableList(
+                    new ArrayList<Class<? extends IOException>>() {
+                        {
+                            add(InterruptedIOException.class);
+                            add(UnknownHostException.class);
+                            add(ConnectException.class);
+                            add(NoRouteToHostException.class);
+                            add(SSLException.class);
+                        }
+                    });
 
     private final long initialRetryDelayMs;
     private final long maxRetryDelayMs;
     private final int maxRetryCount;
 
-    private final SinkMetrics counters;
+    private final SinkMetricsCallback metricsCallback;
 
-    public RemoteWriteRetryStrategy(RetryConfiguration retryConfiguration, SinkMetrics counters) {
+    public RemoteWriteRetryStrategy(
+            RetryConfiguration retryConfiguration, SinkMetricsCallback metricsCallback) {
         this.initialRetryDelayMs = retryConfiguration.getInitialRetryDelayMS();
         this.maxRetryDelayMs = retryConfiguration.getMaxRetryDelayMS();
         this.maxRetryCount = retryConfiguration.getMaxRetryCount();
-        this.counters = counters;
+        this.metricsCallback = metricsCallback;
     }
 
     @Override
     public boolean retryRequest(
             HttpRequest httpRequest, IOException e, int execCount, HttpContext httpContext) {
-        // Retry on any IOException except those considered non-retriable
-        var retry =
-                (execCount <= maxRetryCount) && !(NON_RETRIABLE_EXCEPTIONS.contains(e.getClass()));
+        // Retry on any IOException except those considered non-recoverable
+        boolean retry =
+                (execCount <= maxRetryCount)
+                        && !(NON_RECOVERABLE_EXCEPTIONS.contains(e.getClass()));
         LOG.debug(
                 "{} retry on {}, at execution {}",
                 (retry) ? "DO" : "DO NOT",
@@ -78,7 +99,7 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
 
     @Override
     public boolean retryRequest(HttpResponse httpResponse, int execCount, HttpContext httpContext) {
-        var retry =
+        boolean retry =
                 (execCount <= maxRetryCount)
                         && RemoteWriteResponseClassifier.isRetriableErrorResponse(httpResponse);
         LOG.debug(
@@ -100,7 +121,7 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
 
     private void countRetry(boolean retry) {
         if (retry) {
-            counters.inc(SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_RETRIES);
+            metricsCallback.onWriteRequestRetry();
         }
     }
 }

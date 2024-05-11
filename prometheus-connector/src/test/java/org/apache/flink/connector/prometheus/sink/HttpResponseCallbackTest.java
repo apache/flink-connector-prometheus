@@ -20,6 +20,7 @@ package org.apache.flink.connector.prometheus.sink;
 import org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior;
 import org.apache.flink.connector.prometheus.sink.errorhandling.PrometheusSinkWriteException;
 import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
+import org.apache.flink.connector.prometheus.sink.metrics.VerifybleSinkMetricsCallback;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
@@ -31,15 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCounterCount;
-import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCountersWereNotIncremented;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HttpResponseCallbackTest {
 
@@ -47,14 +41,14 @@ class HttpResponseCallbackTest {
     private static final long SAMPLE_COUNT = 42;
 
     private InspectableMetricGroup metricGroup;
-    private SinkMetrics metrics;
+    private VerifybleSinkMetricsCallback metricsCallback;
     private List<Types.TimeSeries> reQueuedResults;
     Consumer<List<Types.TimeSeries>> requestResults;
 
     @BeforeEach
     void setUp() {
         metricGroup = new InspectableMetricGroup();
-        metrics = SinkMetrics.registerSinkMetrics(metricGroup);
+        metricsCallback = new VerifybleSinkMetricsCallback();
         reQueuedResults = new ArrayList<>();
         requestResults = HttpResponseCallbackTestUtils.getRequestResult(reQueuedResults);
     }
@@ -72,7 +66,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -80,17 +74,8 @@ class HttpResponseCallbackTest {
 
         callback.completed(httpResponse);
 
-        // Verify success counters were incremented
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_OUT);
-        assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_OUT);
-
-        // Verify dropped counters were not incremented
-        assertCountersWereNotIncremented(
-                metricGroup,
-                NUM_SAMPLES_DROPPED,
-                NUM_SAMPLES_RETRY_LIMIT_DROPPED,
-                NUM_SAMPLES_NON_RETRIABLE_DROPPED,
-                NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+        // Verify only the expected metrics callback was called, once
+        assertTrue(metricsCallback.verifyOnlySuccessfulWriteRequestsWasCalledOnce());
 
         // No time series is re-queued
         HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
@@ -107,7 +92,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -131,7 +116,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -139,17 +124,9 @@ class HttpResponseCallbackTest {
 
         callback.completed(httpResponse);
 
-        // Verify fail counters were incremented
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_DROPPED);
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_NON_RETRIABLE_DROPPED);
-        assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
-
-        // Verify success counters were not incremented
-        assertCountersWereNotIncremented(
-                metricGroup,
-                NUM_SAMPLES_OUT,
-                NUM_WRITE_REQUESTS_OUT,
-                NUM_SAMPLES_RETRY_LIMIT_DROPPED);
+        // Verify only the expected metrics callback was called, once
+        assertTrue(
+                metricsCallback.verifyOnlyFailedWriteRequestsForNonRetriableErrorWasCalledOnce());
 
         // No time series is re-queued
         HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
@@ -166,7 +143,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -190,7 +167,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -198,17 +175,9 @@ class HttpResponseCallbackTest {
 
         callback.completed(httpResponse);
 
-        // Verify fail counters were incremented
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_DROPPED);
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_RETRY_LIMIT_DROPPED);
-        assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
-
-        // Verify success counters, and other fail counters, were not incremented
-        assertCountersWereNotIncremented(
-                metricGroup,
-                NUM_SAMPLES_OUT,
-                NUM_WRITE_REQUESTS_OUT,
-                NUM_SAMPLES_NON_RETRIABLE_DROPPED);
+        // Verify only the expected metric callback was called, once
+        assertTrue(
+                metricsCallback.verifyOnlyFailedWriteRequestsForRetryLimitExceededWasCalledOnce());
 
         // No time series is re-queued
         HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
@@ -223,7 +192,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -247,7 +216,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -271,7 +240,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 
@@ -279,12 +248,8 @@ class HttpResponseCallbackTest {
 
         callback.failed(ex);
 
-        // Verify fail counters were incremented
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_DROPPED);
-        assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
-
-        // Verify success counters were not incremented
-        assertCountersWereNotIncremented(metricGroup, NUM_SAMPLES_OUT, NUM_WRITE_REQUESTS_OUT);
+        // Verify only the expected metric callback was called, once
+        assertTrue(metricsCallback.verifyOnlyFailedWriteRequestsForHttpClientIoFailWasCalledOnce());
 
         // No time series is re-queued
         HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
@@ -299,7 +264,7 @@ class HttpResponseCallbackTest {
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         requestResults);
 

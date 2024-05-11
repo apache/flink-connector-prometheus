@@ -21,7 +21,9 @@ import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.base.sink.writer.AsyncSinkWriter;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
+import org.apache.flink.connector.base.sink.writer.config.AsyncSinkWriterConfiguration;
 import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 import org.apache.flink.connector.prometheus.sink.prometheus.Remote;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
@@ -38,28 +40,28 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** Writer, taking care of batching the {@link PrometheusTimeSeries} and handling retries. */
+/**
+ * Writer, taking care of batching the {@link PrometheusTimeSeries} and handling retries.
+ *
+ * <p>The batching of this sink is in terms of Samples, not bytes. The goal is adaptively increase
+ * the number of Samples in each batch, a WriteRequest sent to Prometheus, to a configurable number.
+ * This is the parameter maxBatchSizeInBytes.
+ *
+ * <p>getSizeInBytes(requestEntry) returns the number of Samples (not bytes) and maxBatchSizeInBytes
+ * is actually in terms of Samples (not bytes).
+ *
+ * <p>In AsyncSinkWriter, maxBatchSize is in terms of requestEntries (TimeSeries). But because each
+ * TimeSeries contains 1+ Samples, we set maxBatchSize = maxBatchSizeInBytes.
+ *
+ * <p>maxRecordSizeInBytes is also calculated in the same unit assumed by getSizeInBytes(...). In
+ * our case is the max number of Samples in a single TimeSeries sent to the Sink. We are limiting
+ * the number of Samples in each TimeSeries to the max batch size, setting maxRecordSizeInBytes =
+ * maxBatchSizeInBytes.
+ */
 public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, Types.TimeSeries> {
-
-    /**
-     * * Batching of this sink is in terms of Samples, not bytes. The goal is adaptively increase
-     * the number of Samples in each batch, a WriteRequest sent to Prometheus, to a configurable
-     * number. This is the parameter maxBatchSizeInBytes.
-     *
-     * <p>getSizeInBytes(requestEntry) returns the number of Samples (not bytes) and
-     * maxBatchSizeInBytes is actually in terms of Samples (not bytes).
-     *
-     * <p>In AsyncSinkWriter, maxBatchSize is in terms of requestEntries (TimeSeries). But because
-     * each TimeSeries contains 1+ Samples, we set maxBatchSize = maxBatchSizeInBytes.
-     *
-     * <p>maxRecordSizeInBytes is also calculated in the same unit assumed by getSizeInBytes(...).
-     * In our case is the max number of Samples in a single TimeSeries sent to the Sink. We are
-     * limiting the number of Samples in each TimeSeries to the max batch size, setting
-     * maxRecordSizeInBytes = maxBatchSizeInBytes.
-     */
     private static final Logger LOG = LoggerFactory.getLogger(PrometheusSinkWriter.class);
 
-    private final SinkMetrics metrics;
+    private final SinkMetricsCallback metricsCallback;
     private final CloseableHttpAsyncClient asyncHttpClient;
     private final PrometheusRemoteWriteHttpRequestBuilder requestBuilder;
     private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
@@ -70,10 +72,11 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             int maxInFlightRequests,
             int maxBufferedRequests,
             int maxBatchSizeInSamples,
+            long maxRecordSizeInSamples,
             long maxTimeInBufferMS,
             String prometheusRemoteWriteUrl,
             CloseableHttpAsyncClient asyncHttpClient,
-            SinkMetrics metrics,
+            SinkMetricsCallback metricsCallback,
             PrometheusRequestSigner requestSigner,
             String httpUserAgent,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig) {
@@ -83,10 +86,11 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 maxInFlightRequests,
                 maxBufferedRequests,
                 maxBatchSizeInSamples,
+                maxRecordSizeInSamples,
                 maxTimeInBufferMS,
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
-                metrics,
+                metricsCallback,
                 requestSigner,
                 httpUserAgent,
                 errorHandlingBehaviorConfig,
@@ -99,10 +103,11 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             int maxInFlightRequests,
             int maxBufferedRequests,
             int maxBatchSizeInSamples,
+            long maxRecordSizeInSamples,
             long maxTimeInBufferMS,
             String prometheusRemoteWriteUrl,
             CloseableHttpAsyncClient asyncHttpClient,
-            SinkMetrics metrics,
+            SinkMetricsCallback metricsCallback,
             PrometheusRequestSigner requestSigner,
             String httpUserAgent,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
@@ -110,18 +115,20 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
         super(
                 elementConverter,
                 context,
-                maxBatchSizeInSamples, // maxBatchSize
-                maxInFlightRequests,
-                maxBufferedRequests,
-                maxBatchSizeInSamples, // maxBatchSizeInBytes
-                maxTimeInBufferMS,
-                maxBatchSizeInSamples, // maxRecordSizeInBytes
+                AsyncSinkWriterConfiguration.builder()
+                        .setMaxBatchSize(maxBatchSizeInSamples)
+                        .setMaxBatchSizeInBytes(maxBatchSizeInSamples)
+                        .setMaxInFlightRequests(maxInFlightRequests)
+                        .setMaxBufferedRequests(maxBufferedRequests)
+                        .setMaxTimeInBufferMS(maxTimeInBufferMS)
+                        .setMaxRecordSizeInBytes(maxRecordSizeInSamples)
+                        .build(),
                 states);
         this.requestBuilder =
                 new PrometheusRemoteWriteHttpRequestBuilder(
                         prometheusRemoteWriteUrl, requestSigner, httpUserAgent);
         this.asyncHttpClient = asyncHttpClient;
-        this.metrics = metrics;
+        this.metricsCallback = metricsCallback;
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
     }
 
@@ -153,7 +160,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
         try {
             requestBody = compressWriteRequest(writeRequest);
         } catch (IOException e) {
-            throw new RuntimeException("Exception compressing the request body", e);
+            throw new PrometheusSinkException("Exception compressing the request body", e);
         }
 
         SimpleHttpRequest postRequest = requestBuilder.buildHttpRequest(requestBody);
@@ -162,7 +169,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                 new HttpResponseCallback(
                         timeSeriesCount,
                         sampleCount,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehaviorConfig,
                         requestResult));
     }
@@ -176,7 +183,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
     }
 
     private Remote.WriteRequest buildWriteRequest(List<Types.TimeSeries> requestEntries) {
-        var builder = Remote.WriteRequest.newBuilder();
+        Remote.WriteRequest.Builder builder = Remote.WriteRequest.newBuilder();
         for (Types.TimeSeries timeSeries : requestEntries) {
             builder.addTimeseries(timeSeries);
         }

@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
     void shouldAddContentEncodingHeader() {
         PrometheusRemoteWriteHttpRequestBuilder sut =
                 new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null, USER_AGENT);
-        var request = sut.buildHttpRequest(REQUEST_BODY);
+        SimpleHttpRequest request = sut.buildHttpRequest(REQUEST_BODY);
         assertEquals("snappy", request.getHeaders(HttpHeaders.CONTENT_ENCODING)[0].getValue());
     }
 
@@ -42,7 +43,7 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
     void shouldAddPrometheusRemoteWriteVersionHeader() {
         PrometheusRemoteWriteHttpRequestBuilder sut =
                 new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null, USER_AGENT);
-        var request = sut.buildHttpRequest(REQUEST_BODY);
+        SimpleHttpRequest request = sut.buildHttpRequest(REQUEST_BODY);
         assertEquals(
                 "0.1.0", request.getHeaders("X-Prometheus-Remote-Write-Version")[0].getValue());
     }
@@ -51,7 +52,7 @@ class PrometheusRemoteWriteHttpRequestBuilderTest {
     void shouldAddUserAgent() {
         PrometheusRemoteWriteHttpRequestBuilder sut =
                 new PrometheusRemoteWriteHttpRequestBuilder(ENDPOINT, null, USER_AGENT);
-        var request = sut.buildHttpRequest(REQUEST_BODY);
+        SimpleHttpRequest request = sut.buildHttpRequest(REQUEST_BODY);
         assertEquals(1, request.getHeaders(HttpHeaders.USER_AGENT).length);
         assertEquals(USER_AGENT, request.getHeaders(HttpHeaders.USER_AGENT)[0].getValue());
     }

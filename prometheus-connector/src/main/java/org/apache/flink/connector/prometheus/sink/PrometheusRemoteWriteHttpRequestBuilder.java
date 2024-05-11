@@ -32,7 +32,12 @@ public class PrometheusRemoteWriteHttpRequestBuilder {
 
     private static final ContentType CONTENT_TYPE = ContentType.create("application/x-protobuf");
 
+    private static final String CONTENT_ENCODING = "snappy";
+    private static final String REMOTE_WRITE_VERSION_HEADER = "X-Prometheus-Remote-Write-Version";
+    private static final String REMOTE_WRITE_VERSION = "0.1.0";
+
     public static final String DEFAULT_USER_AGENT = "Flink-Prometheus";
+
     private final String prometheusRemoteWriteUrl;
     private final PrometheusRequestSigner requestSigner;
 
@@ -46,14 +51,10 @@ public class PrometheusRemoteWriteHttpRequestBuilder {
 
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.requestSigner = requestSigner;
-        this.fixedHeaders =
-                Map.of(
-                        HttpHeaders.CONTENT_ENCODING,
-                        "snappy",
-                        "X-Prometheus-Remote-Write-Version",
-                        "0.1.0",
-                        HttpHeaders.USER_AGENT,
-                        httpUserAgent);
+        this.fixedHeaders = new HashMap<>();
+        fixedHeaders.put(HttpHeaders.CONTENT_ENCODING, CONTENT_ENCODING);
+        fixedHeaders.put(REMOTE_WRITE_VERSION_HEADER, REMOTE_WRITE_VERSION);
+        fixedHeaders.put(HttpHeaders.USER_AGENT, httpUserAgent);
     }
 
     public SimpleHttpRequest buildHttpRequest(byte[] httpRequestBody) {
@@ -62,7 +63,7 @@ public class PrometheusRemoteWriteHttpRequestBuilder {
             requestSigner.addSignatureHeaders(headers, httpRequestBody);
         }
 
-        var builder =
+        SimpleRequestBuilder builder =
                 SimpleRequestBuilder.post()
                         .setUri(prometheusRemoteWriteUrl)
                         .setBody(httpRequestBody, CONTENT_TYPE);

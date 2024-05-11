@@ -39,10 +39,17 @@ public class PrometheusSinkBuilder
                 PrometheusTimeSeries, Types.TimeSeries, PrometheusSinkBuilder> {
     private static final Logger LOG = LoggerFactory.getLogger(PrometheusSinkBuilder.class);
 
+    // Max batch size, in number of samples
     private static final int DEFAULT_MAX_BATCH_SIZE_IN_SAMPLES = 500;
+    // Max time a record is buffered
     private static final long DEFAULT_MAX_TIME_IN_BUFFER_MS = 5000;
-    private static final int DEFAULT_MAX_BUFFERED_REQUESTS =
-            1000; // Max nr of requestEntry that will be buffered
+    // Max nr of requestEntry that will be buffered
+    private static final int DEFAULT_MAX_BUFFERED_REQUESTS = 1000;
+    // Metric Group name added to the custom metrics
+    private static final String DEFAULT_METRIC_GROUP_NAME = "Prometheus";
+
+    // Max in-flight requests is always = 1, to retain ordering
+    private static final int MAX_IN_FLIGHT_REQUESTS = 1;
 
     private String prometheusRemoteWriteUrl;
     private RetryConfiguration retryConfiguration;
@@ -52,11 +59,10 @@ public class PrometheusSinkBuilder
     private Integer maxRecordSizeInSamples;
     private String httpUserAgent = null;
     private SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig = null;
+    private String metricGroupName = null;
 
     @Override
     public AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> build() {
-
-        int maxInFlightRequest = 1;
 
         int actualMaxBatchSizeInSamples =
                 Optional.ofNullable(getMaxBatchSizeInSamples())
@@ -65,10 +71,9 @@ public class PrometheusSinkBuilder
                 Optional.ofNullable(getMaxBufferedRequests()).orElse(DEFAULT_MAX_BUFFERED_REQUESTS);
         long actualMaxTimeInBufferMS =
                 Optional.ofNullable(getMaxTimeInBufferMS()).orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS);
+
         int actualMaxRecordSizeInSamples =
-                Optional.ofNullable(getMaxRecordSizeInSamples())
-                        .orElse(getMaxBatchSizeInSamples()); // By default, set max record size to
-        // max batch size (in samples)
+                Optional.ofNullable(getMaxRecordSizeInSamples()).orElse(getMaxBatchSizeInSamples());
 
         int actualSocketTimeoutMs =
                 Optional.ofNullable(getSocketTimeoutMs())
@@ -81,6 +86,9 @@ public class PrometheusSinkBuilder
         SinkWriterErrorHandlingBehaviorConfiguration actualErrorHandlingBehaviorConfig =
                 Optional.ofNullable(errorHandlingBehaviorConfig)
                         .orElse(SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS);
+
+        String actualMetricGroupName =
+                Optional.ofNullable(metricGroupName).orElse(DEFAULT_METRIC_GROUP_NAME);
 
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(prometheusRemoteWriteUrl),
@@ -103,7 +111,7 @@ public class PrometheusSinkBuilder
                 actualMaxBatchSizeInSamples,
                 actualMaxRecordSizeInSamples,
                 actualMaxTimeInBufferMS,
-                maxInFlightRequest,
+                MAX_IN_FLIGHT_REQUESTS,
                 actualMaxBufferedRequests,
                 retryConfiguration.getInitialRetryDelayMS(),
                 retryConfiguration.getMaxRetryDelayMS(),
@@ -116,7 +124,7 @@ public class PrometheusSinkBuilder
 
         return new PrometheusSink(
                 new PrometheusTimeSeriesConverter(),
-                maxInFlightRequest,
+                MAX_IN_FLIGHT_REQUESTS,
                 actualMaxBufferedRequests,
                 actualMaxBatchSizeInSamples,
                 actualMaxRecordSizeInSamples,
@@ -126,7 +134,8 @@ public class PrometheusSinkBuilder
                         .setSocketTimeout(actualSocketTimeoutMs),
                 requestSigner,
                 actualHttpUserAgent,
-                actualErrorHandlingBehaviorConfig);
+                actualErrorHandlingBehaviorConfig,
+                actualMetricGroupName);
     }
 
     private static void checkValidRemoteWriteUrl(String url) {
@@ -178,6 +187,11 @@ public class PrometheusSinkBuilder
         return this;
     }
 
+    public PrometheusSinkBuilder setMetricGroupName(String metricGroupName) {
+        this.metricGroupName = metricGroupName;
+        return this;
+    }
+
     private Integer getMaxBatchSizeInSamples() {
         return maxBatchSizeInSamples;
     }
@@ -200,6 +214,10 @@ public class PrometheusSinkBuilder
 
     public SinkWriterErrorHandlingBehaviorConfiguration getErrorHandlingBehaviorConfig() {
         return errorHandlingBehaviorConfig;
+    }
+
+    public String getMetricGroupName() {
+        return metricGroupName;
     }
 
     /// Disable accessing maxBatchSize, maxBatchSizeInBytes, and maxRecordSizeInBytes directly

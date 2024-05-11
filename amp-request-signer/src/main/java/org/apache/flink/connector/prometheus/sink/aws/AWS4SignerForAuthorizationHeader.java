@@ -24,8 +24,8 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * Sample AWS4 signer demonstrating how to sign requests to Amazon S3 using an 'Authorization'
- * header.
+ * AWS4 signer generating the 'Authorization' header based on the request body, parameters and AWS
+ * credentials.
  */
 public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
 
@@ -68,7 +68,7 @@ public class AWS4SignerForAuthorizationHeader extends AWS4SignerBase {
         String hostHeader = endpointUrl.getHost();
         int port = endpointUrl.getPort();
         if (port > -1) {
-            hostHeader.concat(":" + Integer.toString(port));
+            hostHeader.concat(":" + port);
         }
         headers.put("Host", hostHeader);
 

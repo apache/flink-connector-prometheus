@@ -71,10 +71,10 @@ public class PrometheusStateSerializer extends AsyncSinkWriterStateSerializer<Ty
      * AsyncSinkWriterStateSerializer.serialize().
      *
      * <p>The state is serialized in form of
-     * [DATA_IDENTIFIER,NUM_OF_ELEMENTS,SIZE1,REQUEST1,SIZE2,REQUEST2....], where REQUESTn is the
+     * [DATA_IDENTIFIER,NUM_OF_ELEMENTS,SIZE1,REQUEST1,SIZE2,REQUEST2....], where REQUEST{n} is the
      * Protobuf-serialized representation of a {@link Types.TimeSeries TimeSeries}. In this
-     * implementation SIZEn is the size of the Protobuf serialization, in bytes, that does not match
-     * the "size" of a {@link RequestEntryWrapper}.
+     * implementation SIZE{n} is the size of the Protobuf serialization, in bytes, that does not
+     * match the "size" of a {@link RequestEntryWrapper}.
      *
      * @param bufferedRequestState The buffered request state to be serialized
      * @return serialized buffered request state
@@ -99,8 +99,8 @@ public class PrometheusStateSerializer extends AsyncSinkWriterStateSerializer<Ty
                 // AsyncSinkWriter.getSizeInBytes()
                 long requestEntrySize =
                         RequestEntrySizeUtils.requestSerializedSize(wrapper.getRequestEntry());
-                out.writeLong(requestEntrySize); // SIZEn
-                serializeRequestToStream(wrapper.getRequestEntry(), out); // REQUESTn
+                out.writeLong(requestEntrySize); // SIZE{n}
+                serializeRequestToStream(wrapper.getRequestEntry(), out); // REQUEST{n}
             }
 
             return baos.toByteArray();
@@ -129,8 +129,8 @@ public class PrometheusStateSerializer extends AsyncSinkWriterStateSerializer<Ty
 
             List<RequestEntryWrapper<Types.TimeSeries>> serializedState = new ArrayList<>();
             for (int i = 0; i < numberOfElements; i++) {
-                // This is the size of an request-entry in the serialized state
-                long requestSerializedSize = in.readLong(); // SIZEn - the serialized size
+                // This is the size of a request-entry in the serialized state
+                long requestSerializedSize = in.readLong(); // SIZE (the serialized size)
                 Types.TimeSeries requestEntry =
                         deserializeRequestFromStream(requestSerializedSize, in);
 

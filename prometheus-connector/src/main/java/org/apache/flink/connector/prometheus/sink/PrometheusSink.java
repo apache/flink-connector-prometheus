@@ -17,21 +17,24 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+import org.apache.flink.util.Preconditions;
 
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 
 import java.util.Collection;
 
 /** Sink implementation accepting {@link PrometheusTimeSeries} as inputs. */
-@Public
+@PublicEvolving
 public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> {
     private final String prometheusRemoteWriteUrl;
     private final PrometheusAsyncHttpClientBuilder clientBuilder;
@@ -39,6 +42,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     private final int maxBatchSizeInSamples;
     private final String httpUserAgent;
     private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
+    private final String metricGroupName;
 
     protected PrometheusSink(
             ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
@@ -51,7 +55,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
             PrometheusAsyncHttpClientBuilder clientBuilder,
             PrometheusRequestSigner requestSigner,
             String httpUserAgent,
-            SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig) {
+            SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
+            String metricGroupName) {
         super(
                 elementConverter,
                 maxBatchSizeInSamples, // maxBatchSize,
@@ -61,12 +66,16 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 maxTimeInBufferMS,
                 maxRecordSizeInSamples // maxRecordSizeInBytes
                 );
+
+        Preconditions.checkArgument(maxInFlightRequests == 1, "maxInFlightRequests must be 1");
+
         this.maxBatchSizeInSamples = maxBatchSizeInSamples;
         this.requestSigner = requestSigner;
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.clientBuilder = clientBuilder;
         this.httpUserAgent = httpUserAgent;
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
+        this.metricGroupName = metricGroupName;
     }
 
     public int getMaxBatchSizeInSamples() {
@@ -76,8 +85,12 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     @Override
     public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
             createWriter(InitContext initContext) {
-        SinkMetrics metrics = SinkMetrics.registerSinkMetrics(initContext.metricGroup());
-        CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(metrics);
+        SinkMetricsCallback metricsCallback =
+                new SinkMetricsCallback(
+                        SinkMetrics.registerSinkMetrics(
+                                initContext.metricGroup().addGroup(metricGroupName)));
+        CloseableHttpAsyncClient asyncHttpClient =
+                clientBuilder.buildAndStartClient(metricsCallback);
 
         return new PrometheusSinkWriter(
                 getElementConverter(),
@@ -85,10 +98,11 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 getMaxInFlightRequests(),
                 getMaxBufferedRequests(),
                 getMaxBatchSizeInSamples(),
+                getMaxRecordSizeInBytes(),
                 getMaxTimeInBufferMS(),
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
-                metrics,
+                metricsCallback,
                 requestSigner,
                 httpUserAgent,
                 errorHandlingBehaviorConfig);
@@ -99,18 +113,23 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
             restoreWriter(
                     InitContext initContext,
                     Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
-        SinkMetrics metrics = SinkMetrics.registerSinkMetrics(initContext.metricGroup());
-        CloseableHttpAsyncClient asyncHttpClient = clientBuilder.buildAndStartClient(metrics);
+        SinkMetricsCallback metricsCallback =
+                new SinkMetricsCallback(
+                        SinkMetrics.registerSinkMetrics(
+                                initContext.metricGroup().addGroup(metricGroupName)));
+        CloseableHttpAsyncClient asyncHttpClient =
+                clientBuilder.buildAndStartClient(metricsCallback);
         return new PrometheusSinkWriter(
                 getElementConverter(),
                 initContext,
                 getMaxInFlightRequests(),
                 getMaxBufferedRequests(),
                 getMaxBatchSizeInSamples(),
+                getMaxRecordSizeInBytes(),
                 getMaxTimeInBufferMS(),
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
-                metrics,
+                metricsCallback,
                 requestSigner,
                 httpUserAgent,
                 errorHandlingBehaviorConfig,

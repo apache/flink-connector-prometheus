@@ -83,7 +83,7 @@ public class DataStreamJob {
                 generatorNumberOfMetricsPerSource);
 
         Supplier<PrometheusTimeSeries> eventGenerator =
-                new SimpleCpuAndMemoryMetricTimeSeriesGenerator(
+                new SimpleRandomMetricTimeSeriesGenerator(
                                 generatorMinSamplesPerTimeSeries,
                                 generatorMaxSamplesPerTimeSeries,
                                 generatorNumberOfSources,
@@ -103,24 +103,33 @@ public class DataStreamJob {
         // value
         AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> sink =
                 PrometheusSink.builder()
-                        .setMaxBatchSizeInSamples(500)
-                        .setMaxRecordSizeInSamples(500)
-                        .setMaxTimeInBufferMS(5000)
+                        .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)
+                        // If the Prometheus implementation expects
+                        // authentication, a valid signer implementation
+                        // must be provided
+                        .setRequestSigner(requestSigner) // Optional
+                        .setMaxBatchSizeInSamples(500) // Optional, default 500
+                        .setMaxRecordSizeInSamples(500) // Optional, default = maxBatchSizeInSamples
+                        .setMaxTimeInBufferMS(5000) // Optional, default 5000 ms
                         .setRetryConfiguration(
                                 RetryConfiguration.builder()
-                                        .setInitialRetryDelayMS(30L)
-                                        .setMaxRetryDelayMS(5000L)
-                                        .setMaxRetryCount(100)
+                                        .setInitialRetryDelayMS(30L) // Optional, default 30 ms
+                                        .setMaxRetryDelayMS(5000L) // Optional, default 5000 ms
+                                        .setMaxRetryCount(100) // Optional, default 100
                                         .build())
-                        .setSocketTimeoutMs(5000)
-                        .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)
-                        .setRequestSigner(requestSigner)
+                        .setSocketTimeoutMs(5000) // Optional, default 5000 ms
+                        // If no Error Handling Behavior configuration is provided, all behaviors
+                        // default to FAIL
                         .setErrorHandlingBehaviourConfiguration(
                                 SinkWriterErrorHandlingBehaviorConfiguration.builder()
-                                        .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
-                                        .onMaxRetryExceeded(OnErrorBehavior.FAIL)
-                                        .onHttpClientIOFail(OnErrorBehavior.FAIL)
+                                        .onPrometheusNonRetriableError(
+                                                OnErrorBehavior.FAIL) // Optional, default FAIL
+                                        .onMaxRetryExceeded(
+                                                OnErrorBehavior.FAIL) // Optional, default FAIL
+                                        .onHttpClientIOFail(
+                                                OnErrorBehavior.FAIL) // Optional, default FAIL
                                         .build())
+                        .setMetricGroupName("Prometheus") // Optional, default "Prometheus"
                         .build();
 
         prometheusTimeSeries

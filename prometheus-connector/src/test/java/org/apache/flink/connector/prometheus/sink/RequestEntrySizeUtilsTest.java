@@ -4,6 +4,8 @@ import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,10 +31,13 @@ class RequestEntrySizeUtilsTest {
     @Test
     void countSamples() {
         List<Types.TimeSeries> entries =
-                List.of(
-                        aTimeSeriesWith2Samples(),
-                        aTimeSeriesWith2Samples(),
-                        aTimeSeriesWith2Samples());
+                new ArrayList<Types.TimeSeries>() {
+                    {
+                        add(aTimeSeriesWith2Samples());
+                        add(aTimeSeriesWith2Samples());
+                        add(aTimeSeriesWith2Samples());
+                    }
+                };
 
         long count = RequestEntrySizeUtils.countSamples(entries);
         assertEquals(6, count);
@@ -40,7 +45,7 @@ class RequestEntrySizeUtilsTest {
 
     @Test
     void countSamplesOfEmptyList() {
-        List<Types.TimeSeries> entries = List.of();
+        List<Types.TimeSeries> entries = Collections.emptyList();
 
         long count = RequestEntrySizeUtils.countSamples(entries);
         assertEquals(0, count);

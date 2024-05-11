@@ -58,7 +58,7 @@ public class HttpClientTestUtils {
     }
 
     public static FutureCallback<SimpleHttpResponse> loggingCallback(Logger logger) {
-        return new FutureCallback<>() {
+        return new FutureCallback<SimpleHttpResponse>() {
             @Override
             public void completed(SimpleHttpResponse simpleHttpResponse) {
                 logger.info(

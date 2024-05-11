@@ -17,10 +17,12 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
-import org.apache.flink.connector.prometheus.sink.SinkMetrics;
-import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+import org.apache.flink.connector.prometheus.sink.metrics.VerifybleSinkMetricsCallback;
 
+import org.apache.hc.core5.http.HttpRequest;
+import org.apache.hc.core5.http.HttpResponse;
 import org.apache.hc.core5.http.HttpStatus;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.util.TimeValue;
 import org.junit.jupiter.api.Test;
 
@@ -50,49 +52,48 @@ class RemoteWriteRetryStrategyTest {
                     .setMaxRetryCount(Integer.MAX_VALUE)
                     .build();
 
-    private SinkMetrics dummySinkMetrics() {
-        return SinkMetrics.registerSinkMetrics(
-                UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-    }
-
     @Test
     public void shouldRetryOnRetriableErrorResponse() {
-        var httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-        var httpContext = httpContext();
-        var metrics = dummySinkMetrics();
+        HttpResponse httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        HttpContext httpContext = httpContext();
+        VerifybleSinkMetricsCallback metrics = new VerifybleSinkMetricsCallback();
 
-        var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
+        RemoteWriteRetryStrategy strategy =
+                new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
         assertTrue(strategy.retryRequest(httpResponse, 1, httpContext));
     }
 
     @Test
     public void shouldNotRetryOnNonRetriableErrorResponse() {
-        var httpResponse = httpResponse(HttpStatus.SC_FORBIDDEN);
-        var httpContext = httpContext();
-        var metrics = dummySinkMetrics();
+        HttpResponse httpResponse = httpResponse(HttpStatus.SC_FORBIDDEN);
+        HttpContext httpContext = httpContext();
+        VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();
 
-        var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
+        RemoteWriteRetryStrategy strategy =
+                new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metricsCallback);
         assertFalse(strategy.retryRequest(httpResponse, 1, httpContext));
     }
 
     @Test
     public void shouldRetryIOException() {
-        var httpRequest = postHttpRequest();
-        var httpContext = httpContext();
-        var metrics = dummySinkMetrics();
+        HttpRequest httpRequest = postHttpRequest();
+        HttpContext httpContext = httpContext();
+        VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();
 
-        var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
+        RemoteWriteRetryStrategy strategy =
+                new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metricsCallback);
 
         assertTrue(strategy.retryRequest(httpRequest, new IOException("dummy"), 1, httpContext));
     }
 
     @Test
     public void shouldNotRetryNonRetriableIOExceptions() {
-        var httpRequest = postHttpRequest();
-        var httpContext = httpContext();
-        var metrics = dummySinkMetrics();
+        HttpRequest httpRequest = postHttpRequest();
+        HttpContext httpContext = httpContext();
+        VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();
 
-        var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metrics);
+        RemoteWriteRetryStrategy strategy =
+                new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metricsCallback);
 
         assertFalse(
                 strategy.retryRequest(
@@ -110,11 +111,12 @@ class RemoteWriteRetryStrategyTest {
 
     @Test
     public void retryDelayShouldDecreaseExponentiallyWithExecCount() {
-        var httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-        var httpContext = httpContext();
-        var counters = dummySinkMetrics();
+        HttpResponse httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        HttpContext httpContext = httpContext();
+        VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();
 
-        var strategy = new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, counters);
+        RemoteWriteRetryStrategy strategy =
+                new RemoteWriteRetryStrategy(RETRY_CONFIGURATION, metricsCallback);
 
         assertEquals(
                 TimeValue.ofMilliseconds(INITIAL_RETRY_DELAY_MS),
@@ -132,17 +134,18 @@ class RemoteWriteRetryStrategyTest {
 
     @Test
     public void retryDelayShouldNotExceedMaximumDelay() {
-        var retryConfiguration =
+        RetryConfiguration retryConfiguration =
                 RetryConfiguration.builder()
                         .setInitialRetryDelayMS(30)
                         .setMaxRetryDelayMS(5000)
                         .setMaxRetryCount(Integer.MAX_VALUE)
                         .build();
-        var httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
-        var httpContext = httpContext();
-        var metrics = dummySinkMetrics();
+        HttpResponse httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+        HttpContext httpContext = httpContext();
+        VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();
 
-        var strategy = new RemoteWriteRetryStrategy(retryConfiguration, metrics);
+        RemoteWriteRetryStrategy strategy =
+                new RemoteWriteRetryStrategy(retryConfiguration, metricsCallback);
 
         assertEquals(
                 TimeValue.ofMilliseconds(5000),

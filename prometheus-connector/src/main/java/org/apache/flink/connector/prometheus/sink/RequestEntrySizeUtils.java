@@ -54,8 +54,10 @@ public class RequestEntrySizeUtils {
      * @return number of samples
      */
     public static long countSamples(Collection<Types.TimeSeries> requestEntries) {
-        return requestEntries.stream()
-                .mapToLong(RequestEntrySizeUtils::requestSizeForBatching)
-                .sum();
+        long count = 0;
+        for (Types.TimeSeries requestEntry : requestEntries) {
+            count += requestSizeForBatching(requestEntry);
+        }
+        return count;
     }
 }

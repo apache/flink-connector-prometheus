@@ -21,6 +21,7 @@ import org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior;
 import org.apache.flink.connector.prometheus.sink.errorhandling.PrometheusSinkWriteException;
 import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
@@ -31,13 +32,6 @@ import org.slf4j.LoggerFactory;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
-import static org.apache.flink.connector.prometheus.sink.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_PERMANENTLY_FAILED;
 
 /**
  * Callback handling the outcome of the http async request.
@@ -64,19 +58,19 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
     private final int timeSeriesCount;
     private final long sampleCount;
     private final Consumer<List<Types.TimeSeries>> reQueuedResult;
-    private final SinkMetrics metrics;
+    private final SinkMetricsCallback metricsCallback;
     private final SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig;
 
     public HttpResponseCallback(
             int timeSeriesCount,
             long sampleCount,
-            SinkMetrics metrics,
+            SinkMetricsCallback metricsCallback,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehaviorConfig,
             Consumer<List<Types.TimeSeries>> reQueuedResult) {
         this.timeSeriesCount = timeSeriesCount;
         this.sampleCount = sampleCount;
         this.reQueuedResult = reQueuedResult;
-        this.metrics = metrics;
+        this.metricsCallback = metricsCallback;
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
     }
 
@@ -90,6 +84,10 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
      */
     @Override
     public void completed(SimpleHttpResponse response) {
+        // Never re-queue requests
+        reQueuedResult.accept(Collections.emptyList());
+
+        // Success
         if (RemoteWriteResponseClassifier.isSuccessResponse(response)) {
             LOG.debug(
                     "{},{} - successfully posted {} time-series, containing {} samples",
@@ -97,72 +95,71 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
                     response.getReasonPhrase(),
                     timeSeriesCount,
                     sampleCount);
-            metrics.inc(NUM_SAMPLES_OUT, sampleCount);
-            metrics.inc(NUM_WRITE_REQUESTS_OUT);
-        } else {
-            metrics.inc(NUM_SAMPLES_DROPPED, sampleCount);
-            metrics.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+            metricsCallback.onSuccessfulWriteRequest(sampleCount);
+            return;
+        }
 
-            String responseBody = response.getBodyText();
-            int statusCode = response.getCode();
-            String reasonPhrase = response.getReasonPhrase();
-            if (RemoteWriteResponseClassifier.isNonRetriableErrorResponse(response)) {
-                // Prometheus's response is a non-retriable error.
-                // Depending on the configured behaviour, log and discard or throw an exception
-                if (errorHandlingBehaviorConfig.getOnPrometheusNonRetriableError()
-                        == OnErrorBehavior.DISCARD_AND_CONTINUE) {
-                    LOG.warn(
-                            "{},{} {} (discarded {} time-series, containing {} samples)",
-                            statusCode,
-                            reasonPhrase,
-                            responseBody,
-                            timeSeriesCount,
-                            sampleCount);
-                    metrics.inc(NUM_SAMPLES_NON_RETRIABLE_DROPPED, sampleCount);
-                } else {
-                    throw new PrometheusSinkWriteException(
-                            "Non-retriable error response from Prometheus",
-                            statusCode,
-                            reasonPhrase,
-                            timeSeriesCount,
-                            sampleCount,
-                            responseBody);
-                }
-            } else if (RemoteWriteResponseClassifier.isRetriableErrorResponse(response)) {
-                // Retry limit exceeded on retriable error
-                // Depending on the configured behaviour, log and discard or throw an exception
-                if (errorHandlingBehaviorConfig.getOnMaxRetryExceeded()
-                        == OnErrorBehavior.DISCARD_AND_CONTINUE) {
-                    LOG.warn(
-                            "{},{} {} (after retry limit reached, discarded {} time-series, containing {} samples)",
-                            statusCode,
-                            reasonPhrase,
-                            responseBody,
-                            timeSeriesCount,
-                            sampleCount);
-                    metrics.inc(NUM_SAMPLES_RETRY_LIMIT_DROPPED, sampleCount);
-                } else {
-                    throw new PrometheusSinkWriteException(
-                            "Max retry limit exceeded on retriable error",
-                            statusCode,
-                            reasonPhrase,
-                            timeSeriesCount,
-                            sampleCount,
-                            responseBody);
-                }
-            } else {
+        String responseBody = response.getBodyText();
+        int statusCode = response.getCode();
+        String reasonPhrase = response.getReasonPhrase();
+
+        // Prometheus's response is a non-retriable error.
+        // Depending on the configured behaviour, log and discard or throw an exception
+        if (RemoteWriteResponseClassifier.isNonRetriableErrorResponse(response)) {
+            if (errorHandlingBehaviorConfig.getOnPrometheusNonRetriableError()
+                    == OnErrorBehavior.FAIL) {
                 throw new PrometheusSinkWriteException(
-                        "Unexpected status code returned from the remote-write endpoint",
+                        "Non-retriable error response from Prometheus",
                         statusCode,
                         reasonPhrase,
                         timeSeriesCount,
                         sampleCount,
                         responseBody);
             }
+
+            LOG.warn(
+                    "{},{} {} (discarded {} time-series, containing {} samples)",
+                    statusCode,
+                    reasonPhrase,
+                    responseBody,
+                    timeSeriesCount,
+                    sampleCount);
+            metricsCallback.onFailedWriteRequestForNonRetriableError(sampleCount);
+            return;
         }
 
-        // Never re-queue requests
-        reQueuedResult.accept(Collections.emptyList());
+        // Retry limit exceeded on retriable error
+        // Depending on the configured behaviour, log and discard or throw an exception
+        if (RemoteWriteResponseClassifier.isRetriableErrorResponse(response)) {
+            if (errorHandlingBehaviorConfig.getOnMaxRetryExceeded() == OnErrorBehavior.FAIL) {
+                throw new PrometheusSinkWriteException(
+                        "Max retry limit exceeded on retriable error",
+                        statusCode,
+                        reasonPhrase,
+                        timeSeriesCount,
+                        sampleCount,
+                        responseBody);
+            }
+
+            LOG.warn(
+                    "{},{} {} (after retry limit reached, discarded {} time-series, containing {} samples)",
+                    statusCode,
+                    reasonPhrase,
+                    responseBody,
+                    timeSeriesCount,
+                    sampleCount);
+            metricsCallback.onFailedWriteRequestForRetryLimitExceeded(sampleCount);
+            return;
+        }
+
+        // Unexpected/unhandled response outcome
+        throw new PrometheusSinkWriteException(
+                "Unexpected status code returned from the remote-write endpoint",
+                statusCode,
+                reasonPhrase,
+                timeSeriesCount,
+                sampleCount,
+                responseBody);
     }
 
     @Override
@@ -178,8 +175,7 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
                     timeSeriesCount,
                     sampleCount,
                     ex);
-            metrics.inc(NUM_SAMPLES_DROPPED, sampleCount);
-            metrics.inc(NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
+            metricsCallback.onFailedWriteRequestForHttpClientIoFail(sampleCount);
         }
     }
 

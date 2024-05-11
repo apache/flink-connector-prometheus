@@ -18,8 +18,7 @@
 package org.apache.flink.connector.prometheus.sink.http;
 
 import org.apache.flink.connector.prometheus.sink.HttpTestUtils;
-import org.apache.flink.connector.prometheus.sink.SinkMetrics;
-import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
+import org.apache.flink.connector.prometheus.sink.metrics.VerifybleSinkMetricsCallback;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockRuntimeInfo;
 import com.github.tomakehurst.wiremock.junit5.WireMockTest;
@@ -51,34 +50,27 @@ import static org.awaitility.Awaitility.await;
 @WireMockTest
 public class AsyncHttpClientRetryIT {
 
-    private SinkMetrics dummySinkMetrics() {
-        return SinkMetrics.registerSinkMetrics(
-                UnregisteredMetricsGroup.createSinkWriterMetricGroup());
-    }
-
     @Test
     public void shouldRetryOn500UpToRetryLimitThenSuccessfullyReturn(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(serverError()));
-
-        SinkMetrics metrics = dummySinkMetrics();
 
         int retryLimit = 10;
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
                         HttpTestUtils.fastRetryConfiguration(retryLimit));
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client =
+                clientBuilder.buildAndStartClient(new VerifybleSinkMetricsCallback())) {
             SimpleHttpRequest request =
                     HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_SERVER_ERROR));
 
             await().untilAsserted(
-                            () -> {
-                                verify(
-                                        exactly(expectedRequestCount),
-                                        postRequestedFor(urlEqualTo("/remote_write")));
-                            });
+                            () ->
+                                    verify(
+                                            exactly(expectedRequestCount),
+                                            postRequestedFor(urlEqualTo("/remote_write"))));
         }
     }
 
@@ -86,24 +78,23 @@ public class AsyncHttpClientRetryIT {
     public void shouldRetryOn429UpToRetryLimitThenSuccessfullyReturn(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(status(HttpStatus.SC_TOO_MANY_REQUESTS)));
-        SinkMetrics metrics = dummySinkMetrics();
 
         int retryLimit = 10;
         int expectedRequestCount = retryLimit + 1;
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(
                         HttpTestUtils.fastRetryConfiguration(retryLimit));
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client =
+                clientBuilder.buildAndStartClient(new VerifybleSinkMetricsCallback())) {
             SimpleHttpRequest request =
                     HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_TOO_MANY_REQUESTS));
 
             await().untilAsserted(
-                            () -> {
-                                verify(
-                                        exactly(expectedRequestCount),
-                                        postRequestedFor(urlEqualTo("/remote_write")));
-                            });
+                            () ->
+                                    verify(
+                                            exactly(expectedRequestCount),
+                                            postRequestedFor(urlEqualTo("/remote_write"))));
         }
     }
 
@@ -111,20 +102,21 @@ public class AsyncHttpClientRetryIT {
     public void shouldNotRetryOn404ThenSuccessfullyReturn(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(notFound()));
-        SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(HttpTestUtils.fastRetryConfiguration(2));
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client =
+                clientBuilder.buildAndStartClient(new VerifybleSinkMetricsCallback())) {
             SimpleHttpRequest request =
                     HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_NOT_FOUND));
 
             await().untilAsserted(
-                            () -> {
-                                verify(exactly(1), postRequestedFor(urlEqualTo("/remote_write")));
-                            });
+                            () ->
+                                    verify(
+                                            exactly(1),
+                                            postRequestedFor(urlEqualTo("/remote_write"))));
         }
     }
 
@@ -132,20 +124,21 @@ public class AsyncHttpClientRetryIT {
     void shouldNotRetryOn200OkThenSuccessfullyReturn(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
         stubFor(post("/remote_write").willReturn(ok()));
-        SinkMetrics metrics = dummySinkMetrics();
 
         PrometheusAsyncHttpClientBuilder clientBuilder =
                 new PrometheusAsyncHttpClientBuilder(HttpTestUtils.fastRetryConfiguration(2));
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client =
+                clientBuilder.buildAndStartClient(new VerifybleSinkMetricsCallback())) {
             SimpleHttpRequest request =
                     HttpTestUtils.buildPostRequest(HttpTestUtils.buildRequestUrl(wmRuntimeInfo));
             client.execute(request, statusCodeAsserter(HttpStatus.SC_OK));
 
             await().untilAsserted(
-                            () -> {
-                                verify(exactly(1), postRequestedFor(urlEqualTo("/remote_write")));
-                            });
+                            () ->
+                                    verify(
+                                            exactly(1),
+                                            postRequestedFor(urlEqualTo("/remote_write"))));
         }
     }
 }

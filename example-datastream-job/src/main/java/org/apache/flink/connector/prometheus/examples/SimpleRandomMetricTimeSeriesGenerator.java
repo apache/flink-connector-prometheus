@@ -25,19 +25,25 @@ import java.io.Serializable;
 import java.util.function.Supplier;
 
 /**
- * Very simple dummy TimeSeries generator, generating random `CPU` and `Memory` samples for a given
- * number of sources.
+ * Very simple dummy TimeSeries generator, generating random samples for a given number of "metrics"
+ * and a given number of "sources".
+ *
+ * <p>Samples have two labels: `__name__` = `Mxxxxx` (e.g. `M00001`) , and `SourceId` =
+ * `Sxxxxxxxxxx` (e.g. `S0000000042`)
  *
  * <p>Sample timestamp is always the current system time. The value is random, between 0 and 1
+ *
+ * <p>This class creates a Supplier. The Supplier generates a PrometheusTimeSeries containing a
+ * random number of samples, within a configurable range.
  */
-public class SimpleCpuAndMemoryMetricTimeSeriesGenerator implements Serializable {
+public class SimpleRandomMetricTimeSeriesGenerator implements Serializable {
 
     private final int numberOfSources;
     private final int minNrOfSamples;
     private final int maxNrOfSamples;
     private final short numberOfMetricsPerSource;
 
-    public SimpleCpuAndMemoryMetricTimeSeriesGenerator(
+    public SimpleRandomMetricTimeSeriesGenerator(
             int minNrOfSamples,
             int maxNrOfSamples,
             int numberOfSources,

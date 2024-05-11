@@ -17,6 +17,8 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics;
+
 import org.junit.jupiter.api.Assertions;
 
 /** Assertions to verify whether metrics of a {@link InspectableMetricGroup} has been modified. */

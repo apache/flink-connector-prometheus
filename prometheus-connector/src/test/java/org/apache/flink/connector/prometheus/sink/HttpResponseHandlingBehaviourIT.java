@@ -21,6 +21,8 @@ import org.apache.flink.connector.prometheus.sink.errorhandling.OnErrorBehavior;
 import org.apache.flink.connector.prometheus.sink.errorhandling.PrometheusSinkWriteException;
 import org.apache.flink.connector.prometheus.sink.errorhandling.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 
 import com.github.tomakehurst.wiremock.client.ResponseDefinitionBuilder;
@@ -66,11 +68,13 @@ public class HttpResponseHandlingBehaviourIT {
     private static final int TIME_SERIES_COUNT = 13;
     private static final long SAMPLE_COUNT = 42;
 
-    private SinkMetrics metrics;
+    private SinkMetricsCallback metricsCallback;
 
     @BeforeEach
     void setUp() {
-        metrics = SinkMetrics.registerSinkMetrics(new UnregisteredMetricsGroup());
+        metricsCallback =
+                new SinkMetricsCallback(
+                        SinkMetrics.registerSinkMetrics(new UnregisteredMetricsGroup()));
     }
 
     private SimpleHttpRequest buildRequest(WireMockRuntimeInfo wmRuntimeInfo)
@@ -88,13 +92,13 @@ public class HttpResponseHandlingBehaviourIT {
     }
 
     private VerifyableResponseCallback getResponseCallback(
-            SinkMetrics metrics,
+            SinkMetricsCallback metricsCallback,
             SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior) {
         return new VerifyableResponseCallback(
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
-                        metrics,
+                        metricsCallback,
                         errorHandlingBehavior,
                         getRequestResult(new ArrayList<>())));
     }
@@ -102,10 +106,11 @@ public class HttpResponseHandlingBehaviourIT {
     @Test
     void shouldCompleteOn200Ok(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
+        PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
+
+        // 200,OK: success
         int statusCode = 200;
         serverWillRespond(status(statusCode));
-
-        PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
 
         // Fail on any error
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
@@ -115,11 +120,12 @@ public class HttpResponseHandlingBehaviourIT {
                         .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
                         .build();
 
-        VerifyableResponseCallback callback = getResponseCallback(metrics, errorHandlingBehavior);
+        VerifyableResponseCallback callback =
+                getResponseCallback(metricsCallback, errorHandlingBehavior);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
             client.execute(request, callback);
 
             await().untilAsserted(
@@ -136,11 +142,12 @@ public class HttpResponseHandlingBehaviourIT {
     @Test
     void shouldCompleteAfterRetryingOn500WhenDiscardAndContinueOnMaxRetryExceededIsSelected(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
-        int statusCode = 500; // 500,Server error is retriable for Prometheus remote-write
-        serverWillRespond(status(statusCode));
-
         int maxRetryCount = 2;
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(maxRetryCount);
+
+        // 500,Server error is retriable for Prometheus remote-write
+        int statusCode = 500;
+        serverWillRespond(status(statusCode));
 
         // Discard and continue on max retry exceeded
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
@@ -148,11 +155,12 @@ public class HttpResponseHandlingBehaviourIT {
                         .onMaxRetryExceeded(OnErrorBehavior.DISCARD_AND_CONTINUE)
                         .build();
 
-        VerifyableResponseCallback callback = getResponseCallback(metrics, errorHandlingBehavior);
+        VerifyableResponseCallback callback =
+                getResponseCallback(metricsCallback, errorHandlingBehavior);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
             client.execute(request, callback);
 
             await().untilAsserted(
@@ -172,11 +180,12 @@ public class HttpResponseHandlingBehaviourIT {
     @Test
     void shouldRetryCompleteAndThrowExceptionOn500WhenFailOnMaxRetryExceededIsSelected(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
-        int statusCode = 500; // 500,Server error is retriable for Prometheus remote-write
-        serverWillRespond(status(statusCode));
-
         int maxRetryCount = 2;
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(maxRetryCount);
+
+        // 500,Server error is retriable for Prometheus remote-write
+        int statusCode = 500;
+        serverWillRespond(status(statusCode));
 
         // Fail on max retry exceeded
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
@@ -184,11 +193,12 @@ public class HttpResponseHandlingBehaviourIT {
                         .onMaxRetryExceeded(OnErrorBehavior.FAIL)
                         .build();
 
-        VerifyableResponseCallback callback = getResponseCallback(metrics, errorHandlingBehavior);
+        VerifyableResponseCallback callback =
+                getResponseCallback(metricsCallback, errorHandlingBehavior);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
             client.execute(request, callback);
 
             await().untilAsserted(
@@ -210,7 +220,9 @@ public class HttpResponseHandlingBehaviourIT {
     void shouldNotRetryAndCompleteOn404WhenDiscardAndContinueOnNonRetriableIsSelected(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
-        int statusCode = 404; // 404,Not found is non-retriable for Prometheus remote-write
+
+        // 404,Not found is non-retriable for Prometheus remote-write
+        int statusCode = 404;
         serverWillRespond(status(statusCode));
 
         // Discard and continue on non-retriable
@@ -219,11 +231,12 @@ public class HttpResponseHandlingBehaviourIT {
                         .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
                         .build();
 
-        VerifyableResponseCallback callback = getResponseCallback(metrics, errorHandlingBehavior);
+        VerifyableResponseCallback callback =
+                getResponseCallback(metricsCallback, errorHandlingBehavior);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
             client.execute(request, callback);
 
             await().untilAsserted(
@@ -241,7 +254,9 @@ public class HttpResponseHandlingBehaviourIT {
     void shouldNotRetryAndCompleteAndThrowExceptionOn404WhenFailOnNonRetriableIsSelected(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
-        int statusCode = 404; // 404,Not found is non-retriable for Prometheus remote-write
+
+        // 404,Not found is non-retriable for Prometheus remote-write
+        int statusCode = 404;
         serverWillRespond(status(statusCode));
 
         // Fail on non-retriable
@@ -250,11 +265,12 @@ public class HttpResponseHandlingBehaviourIT {
                         .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
                         .build();
 
-        VerifyableResponseCallback callback = getResponseCallback(metrics, errorHandlingBehavior);
+        VerifyableResponseCallback callback =
+                getResponseCallback(metricsCallback, errorHandlingBehavior);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
             client.execute(request, callback);
 
             await().untilAsserted(
@@ -272,10 +288,11 @@ public class HttpResponseHandlingBehaviourIT {
     @Test
     void shouldNotRetryCompleteAndThrowExceptionOn304(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
-        int statusCode =
-                304; // 304, Not modified is just status code for which the behaviour is not
+
+        // 304, Not modified is just status code for which the behaviour is not
         // specified by Prometheus remote-write specs, and makes the http client
         // terminate successfully
+        int statusCode = 304;
         serverWillRespond(status(statusCode));
 
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
@@ -283,11 +300,12 @@ public class HttpResponseHandlingBehaviourIT {
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
                 SinkWriterErrorHandlingBehaviorConfiguration.builder().build();
 
-        VerifyableResponseCallback callback = getResponseCallback(metrics, errorHandlingBehavior);
+        VerifyableResponseCallback callback =
+                getResponseCallback(metricsCallback, errorHandlingBehavior);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metrics)) {
+        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
             client.execute(request, callback);
 
             await().untilAsserted(

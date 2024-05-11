@@ -32,7 +32,7 @@ public class PrometheusTimeSeriesConverter
 
     @Override
     public Types.TimeSeries apply(PrometheusTimeSeries element, SinkWriter.Context context) {
-        var builder =
+        Types.TimeSeries.Builder builder =
                 Types.TimeSeries.newBuilder()
                         .addLabels(
                                 Types.Label.newBuilder()

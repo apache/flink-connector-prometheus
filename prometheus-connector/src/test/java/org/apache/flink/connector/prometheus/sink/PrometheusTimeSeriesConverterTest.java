@@ -43,13 +43,13 @@ class PrometheusTimeSeriesConverterTest {
 
     @Test
     public void testMetricNameLabel() {
-        var input =
+        PrometheusTimeSeries input =
                 PrometheusTimeSeries.builder()
                         .withMetricName("metric-1")
                         .addSample(42.0, 1L)
                         .build();
 
-        var requestEntry = sut.apply(input, dummyContext);
+        Types.TimeSeries requestEntry = sut.apply(input, dummyContext);
 
         assertEquals(1, requestEntry.getLabelsList().size());
 
@@ -60,7 +60,7 @@ class PrometheusTimeSeriesConverterTest {
 
     @Test
     public void testAdditionalLabels() {
-        var input =
+        PrometheusTimeSeries input =
                 PrometheusTimeSeries.builder()
                         .withMetricName("metric-1")
                         .addLabel("dimensionA", "value-A")
@@ -68,29 +68,29 @@ class PrometheusTimeSeriesConverterTest {
                         .addSample(42, 1L)
                         .build();
 
-        var requestEntry = sut.apply(input, dummyContext);
+        Types.TimeSeries requestEntry = sut.apply(input, dummyContext);
 
         assertEquals(3, requestEntry.getLabelsList().size());
 
         Types.Label secondLabel = requestEntry.getLabelsList().get(1);
-        assertEquals("dimension-A", secondLabel.getName());
+        assertEquals("dimensionA", secondLabel.getName());
         assertEquals("value-A", secondLabel.getValue());
 
         Types.Label thirdLabel = requestEntry.getLabelsList().get(2);
-        assertEquals("dimension-B", thirdLabel.getName());
+        assertEquals("dimensionB", thirdLabel.getName());
         assertEquals("value-B", thirdLabel.getValue());
     }
 
     @Test
     public void testSamples() {
-        var input =
+        PrometheusTimeSeries input =
                 PrometheusTimeSeries.builder()
                         .withMetricName("metric-1")
                         .addSample(42.0, 1L)
                         .addSample(3.14, 2L)
                         .build();
 
-        var requestEntry = sut.apply(input, dummyContext);
+        Types.TimeSeries requestEntry = sut.apply(input, dummyContext);
 
         assertEquals(2, requestEntry.getSamplesList().size());
 

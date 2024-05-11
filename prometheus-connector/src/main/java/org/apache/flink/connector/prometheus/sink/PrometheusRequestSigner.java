@@ -17,7 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
-import org.apache.flink.annotation.Public;
+import org.apache.flink.annotation.PublicEvolving;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -27,8 +27,11 @@ import java.util.Map;
  *
  * <p>A request signer implementation can generate additional Http request headers, based on the
  * existing headers and the request body.
+ *
+ * <p>The signature method is called on every write request. For performance reasons, the Map of
+ * HTTP headers is mutated, instead of making a copy.
  */
-@Public
+@PublicEvolving
 public interface PrometheusRequestSigner extends Serializable {
 
     /**

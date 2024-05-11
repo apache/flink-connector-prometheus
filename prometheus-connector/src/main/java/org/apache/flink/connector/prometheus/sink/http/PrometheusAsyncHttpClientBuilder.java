@@ -17,12 +17,13 @@
 
 package org.apache.flink.connector.prometheus.sink.http;
 
-import org.apache.flink.connector.prometheus.sink.SinkMetrics;
+import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 import org.apache.flink.util.Preconditions;
 
 import org.apache.hc.client5.http.config.TlsConfig;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClients;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManager;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
 import org.apache.hc.core5.http2.HttpVersionPolicy;
 import org.apache.hc.core5.reactor.IOReactorConfig;
@@ -50,7 +51,7 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
         return this;
     }
 
-    public CloseableHttpAsyncClient buildAndStartClient(SinkMetrics counters) {
+    public CloseableHttpAsyncClient buildAndStartClient(SinkMetricsCallback metricsCallback) {
         int actualSocketTimeoutMs =
                 Optional.ofNullable(socketTimeoutMs).orElse(DEFAULT_SOCKET_TIMEOUT_MS);
 
@@ -67,23 +68,23 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
 
         final IOReactorConfig ioReactorConfig =
                 IOReactorConfig.custom()
-                        .setIoThreadCount(1) // Always one thread
+                        // Remote-Writes must be single-threaded to prevent out-of-order writes
+                        .setIoThreadCount(1)
                         .setSoTimeout(Timeout.ofMilliseconds(actualSocketTimeoutMs))
                         .build();
 
-        var client =
+        TlsConfig tlsConfig =
+                TlsConfig.custom().setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_1).build();
+        PoolingAsyncClientConnectionManager connectionManager =
+                PoolingAsyncClientConnectionManagerBuilder.create()
+                        .setDefaultTlsConfig(tlsConfig)
+                        .build();
+        CloseableHttpAsyncClient client =
                 HttpAsyncClients.custom()
-                        .setConnectionManager(
-                                PoolingAsyncClientConnectionManagerBuilder.create()
-                                        .setDefaultTlsConfig(
-                                                TlsConfig.custom()
-                                                        .setVersionPolicy(
-                                                                HttpVersionPolicy.FORCE_HTTP_1)
-                                                        .build())
-                                        .build())
+                        .setConnectionManager(connectionManager)
                         .setIOReactorConfig(ioReactorConfig)
                         .setRetryStrategy(
-                                new RemoteWriteRetryStrategy(retryConfiguration, counters))
+                                new RemoteWriteRetryStrategy(retryConfiguration, metricsCallback))
                         .build();
 
         client.start();
