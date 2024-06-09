@@ -1,31 +1,13 @@
-/*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
-
 package org.apache.flink.connector.prometheus.sink.aws;
 
 import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.util.Preconditions;
 
-import com.amazonaws.auth.AWSCredentials;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSSessionCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.util.BinaryUtils;
 import org.apache.commons.lang3.StringUtils;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -33,6 +15,9 @@ import java.util.Map;
 
 /** Sign a Remote-Write request to Amazon Managed Service for Prometheus (AMP). */
 public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequestSigner {
+    // Header names
+    private static final String X_AMZ_CONTENT_SHA_256 = "x-amz-content-sha256";
+    private static final String AUTHORIZATION = "Authorization";
 
     private final URL remoteWriteUrl;
     private final String awsRegion;
@@ -68,21 +53,24 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
      */
     @Override
     public void addSignatureHeaders(Map<String, String> requestHeaders, byte[] requestBody) {
-        byte[] contentHash = AWS4SignerBase.hash(requestBody);
-        String contentHashString = BinaryUtils.toHex(contentHash);
+        byte[] contentHash = AWS4qSignerForAMP.hash(requestBody);
+        String contentHashString = AWS4qSignerForAMP.toHex(contentHash);
 
         // x-amz-content-sha256 must be included before generating the Authorization header
-        requestHeaders.put("x-amz-content-sha256", contentHashString);
+        requestHeaders.put(X_AMZ_CONTENT_SHA_256, contentHashString);
 
-        AWSCredentialsProvider awsCredProvider = new DefaultAWSCredentialsProviderChain();
-        AWSCredentials awsCreds = awsCredProvider.getCredentials();
+        // Get the credentials from the default credential provider chain
+        AwsCredentialsProvider awsCredProvider = DefaultCredentialsProvider.create();
+        AwsCredentials awsCreds = awsCredProvider.resolveCredentials();
+
+        // If the credentials are from a session, also get the session token
         String sessionToken =
-                (awsCreds instanceof AWSSessionCredentials)
-                        ? ((AWSSessionCredentials) awsCreds).getSessionToken()
+                (awsCreds instanceof AwsSessionCredentials)
+                        ? ((AwsSessionCredentials) awsCreds).sessionToken()
                         : null;
 
-        AWS4SignerForAuthorizationHeader signer =
-                new AWS4SignerForAuthorizationHeader(remoteWriteUrl, "POST", "aps", awsRegion);
+        AWS4qSignerForAMP signer = new AWS4qSignerForAMP(remoteWriteUrl, awsRegion);
+
         // computeSignature also adds 'Host', 'X-Amz-Date' and 'x-amz-security-token' to the
         // requestHeaders Map
         String authorization =
@@ -90,9 +78,9 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
                         requestHeaders,
                         null, // no query parameters
                         contentHashString,
-                        awsCreds.getAWSAccessKeyId(),
-                        awsCreds.getAWSSecretKey(),
+                        awsCreds.accessKeyId(),
+                        awsCreds.secretAccessKey(),
                         sessionToken);
-        requestHeaders.put("Authorization", authorization);
+        requestHeaders.put(AUTHORIZATION, authorization);
     }
 }
