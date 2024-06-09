@@ -27,8 +27,8 @@ under the License.
         <version>1.0.0-SNAPSHOT</version>
     </parent>
 
-    <name>Flink : Connectors : Prometheus : AMP request signer</name>
-    <artifactId>flink-connector-prometheus-amp-request-signer</artifactId>
+    <name>Flink : Connectors : Prometheus : Amazon Managed Prometheus Request Signer</name>
+    <artifactId>flink-connector-prometheus-request-signer-amp</artifactId>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

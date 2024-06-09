@@ -11,9 +11,8 @@ policy).
 ### Sample usage
 
 To enable request signing for Amazon Managed Prometheus, and instance of `AmazonManagedPrometheusWriteRequestSigner`
-must
-be provided when building the `PrometheusSink` instance. The only required parameters are the AWS region and the AMP
-remote-write URL.
+must be provided when building the `PrometheusSink` instance. The only required parameters are the AWS region and the 
+AMP remote-write URL.
 
 ```java
 

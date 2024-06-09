@@ -45,8 +45,8 @@
 
         <!-- Amazon Managed Prometheus signed (remove if not used) -->
         <dependency>
-            <groupId>org.apache.flink.connector.prometheus</groupId>
-            <artifactId>amp-request-signer</artifactId>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-prometheus-request-signer-amp</artifactId>
             <version>${project.version}</version>
         </dependency>
 
