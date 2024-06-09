@@ -24,7 +24,7 @@ import java.util.TreeMap;
  * Implements Http/1.1 AWS Signature Version 4a request signing for POST requests to the Amazon
  * Managed Prometheus service (`aps`).
  */
-public class AWS4qSignerForAMP {
+public class AWS4SignerForAMP {
     private static final String SCHEME = "AWS4";
     private static final String ALGORITHM = "HMAC-SHA256";
     private static final String TERMINATOR = "aws4_request";
@@ -56,7 +56,7 @@ public class AWS4qSignerForAMP {
      * @param regionName The system name of the AWS region associated with the endpoint, e.g.
      *     us-east-1.
      */
-    public AWS4qSignerForAMP(URL endpointUrl, String regionName) {
+    public AWS4SignerForAMP(URL endpointUrl, String regionName) {
         this.endpointUrl = endpointUrl;
         this.regionName = regionName;
 

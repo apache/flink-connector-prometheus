@@ -53,8 +53,8 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
      */
     @Override
     public void addSignatureHeaders(Map<String, String> requestHeaders, byte[] requestBody) {
-        byte[] contentHash = AWS4qSignerForAMP.hash(requestBody);
-        String contentHashString = AWS4qSignerForAMP.toHex(contentHash);
+        byte[] contentHash = AWS4SignerForAMP.hash(requestBody);
+        String contentHashString = AWS4SignerForAMP.toHex(contentHash);
 
         // x-amz-content-sha256 must be included before generating the Authorization header
         requestHeaders.put(X_AMZ_CONTENT_SHA_256, contentHashString);
@@ -69,7 +69,7 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
                         ? ((AwsSessionCredentials) awsCreds).sessionToken()
                         : null;
 
-        AWS4qSignerForAMP signer = new AWS4qSignerForAMP(remoteWriteUrl, awsRegion);
+        AWS4SignerForAMP signer = new AWS4SignerForAMP(remoteWriteUrl, awsRegion);
 
         // computeSignature also adds 'Host', 'X-Amz-Date' and 'x-amz-security-token' to the
         // requestHeaders Map
