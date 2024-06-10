@@ -37,7 +37,6 @@ under the License.
     <modules>
         <module>flink-connector-prometheus</module>
         <module>flink-connector-prometheus-request-signer-amp</module>
-        <module>example-datastream-job</module>
     </modules>
 
     <licenses>
