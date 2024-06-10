@@ -78,8 +78,6 @@ public class DataStreamExample {
         //        requestSigner =
         //                new AmazonManagedPrometheusWriteRequestSigner(
         //                        prometheusRemoteWriteUrl, applicationParameters.get("awsRegion"));
-        //                    new AmazonManagedPrometheusWriteRequestSigner(
-        //                            prometheusRemoteWriteUrl, ampAWSRegion);
 
         // Configure data generator
         int generatorMinSamplesPerTimeSeries = 1;
