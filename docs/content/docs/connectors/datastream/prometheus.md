@@ -41,8 +41,7 @@ To use the connector, add the following Maven dependency to your project:
 ## Usage
 
 The Prometheus sink provides a build class for constructing instance of `PrometheusSink`. The code snippets below shows 
-how to build a `PrometheusSink` also using a [request signer](#request-signer), and customizing 
-[error handling behavior](#error-handling-configuration).
+how to build a `PrometheusSink` also using a [request signer](#request-signer), and [customizing the error handling behavior](#error-handling-configuration).
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
