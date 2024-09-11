@@ -343,6 +343,8 @@ lost on error.
 Setting `maxBatchSizeInSamples` to 1 minimizes data loss, but heavily reduce the throughput you can write to Prometheus.
 {{< /hint >}}
 
+{{< hint warn >}}If any record containing more samples than `maxRecordSizeInSamples`, the sink with throw and exception and the job 
+will fail and restart continuously.{{< /hint >}}
 
 ## Request Signer
 
