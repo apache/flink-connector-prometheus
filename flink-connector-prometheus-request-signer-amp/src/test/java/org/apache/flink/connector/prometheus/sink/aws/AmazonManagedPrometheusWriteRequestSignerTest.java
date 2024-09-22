@@ -88,9 +88,9 @@ class AmazonManagedPrometheusWriteRequestSignerTest {
     public void shouldAddExpectedHeaders_BasicCredentials() {
         AmazonManagedPrometheusWriteRequestSigner signer =
                 new AmazonManagedPrometheusWriteRequestSigner(
-                        "https://example.com/endpoint",
-                        "us-east-1",
-                        new DummyAwsBasicCredentialsProvider("access-key-id", "secret-access-key"));
+                        "https://example.com/endpoint", "us-east-1");
+        signer.setCredentialsProvider(
+                new DummyAwsBasicCredentialsProvider("access-key-id", "secret-access-key"));
 
         Map<String, String> requestHeaders = new HashMap<>();
         byte[] requestBody = "request-payload".getBytes(StandardCharsets.UTF_8);
@@ -109,10 +109,10 @@ class AmazonManagedPrometheusWriteRequestSignerTest {
     public void shouldAddExpectedHeaders_SessionCredentials() {
         AmazonManagedPrometheusWriteRequestSigner signer =
                 new AmazonManagedPrometheusWriteRequestSigner(
-                        "https://example.com/endpoint",
-                        "us-east-1",
-                        new DummAwsSessionCredentialProvider(
-                                "access-key-id", "secret-access-key", "session-key"));
+                        "https://example.com/endpoint", "us-east-1");
+        signer.setCredentialsProvider(
+                new DummAwsSessionCredentialProvider(
+                        "access-key-id", "secret-access-key", "session-key"));
 
         Map<String, String> requestHeaders = new HashMap<>();
         byte[] requestBody = "request-payload".getBytes(StandardCharsets.UTF_8);

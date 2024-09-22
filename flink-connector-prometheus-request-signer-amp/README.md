@@ -1,10 +1,9 @@
 ## Request Signer for Amazon Managed Prometheus (AMP)
 
-Request signer implementation for Amazon Managed Prometheus (AMP)
+Request signer implementation for Amazon Managed Prometheus (AMP).
 
-The signer retrieves AWS credential using a `software.amazon.awssdk.auth.credentials.AwsCredentialsProvider`.
-The default `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` works in most of the cases. 
-Alternatively, you can pass an instance of `AwsCredentialsProvider` to the signer constructor.
+The signer retrieves AWS credential using the default credential provider chain, that searches for credentials 
+in the following order: ENV_VARS, SYS_PROPS, WEB_IDENTITY_TOKEN, PROFILE and EC2/ECS credentials provider.
 
 The Flink application requires `RemoteWrite` permissions to the AMP workspace (e.g. `AmazonPromethusRemoteWriteAccess`
 policy).

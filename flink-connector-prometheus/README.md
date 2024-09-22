@@ -13,11 +13,8 @@ order and well-formed, before sending it to the sink.
 
 For efficiency, the connector does not do any validation.
 If input is out of order or malformed, **the write request is rejected by Prometheus**.
-If the write request is rejected, depending on the configured [error handling behaviour](#error-handling-behavior) for
-"Prometheus non-retriable errors", the sink will either throw an exception (`FAIL`, default behavior) or discard the
-offending
-request and continue (`DISCARD_AND_CONTINUE`). See [error handling behaviour](#error-handling-behavior), below, for
-further details.
+Currently, on such errors, the connector will discard the entire request containing the offending data, and continue.
+See [error handling behavior](#error-handling-behavior), below, for further details.
 
 The sink receives as input time-series, each containing one or more samples.
 To optimise the write throughput, input time-series are batched, in the order they are received, and written with a
@@ -25,9 +22,7 @@ single write-request.
 
 If a write-request contains any out-of-order or malformed data, **the entire request is rejected** and all time series
 are discarded.
-The reason is Remote-Write
-specifications [explicitly forbids retrying](https://prometheus.io/docs/concepts/remote_write_spec/#retries-backoff) of
-rejected write requests (4xx responses).
+The reason is Remote-Write specifications [explicitly forbids retrying](https://prometheus.io/docs/concepts/remote_write_spec/#retries-backoff) of rejected write requests (4xx responses).
 and the Prometheus response does not contain enough information to efficiently partially retry the write, discarding the
 offending data.
 
@@ -67,11 +62,8 @@ PrometheusTimeSeries.Builder tsBuilder = PrometheusTimeSeries.builder()
         .addLabel("InstanceID", instanceId)
         .addLabel("AccountID", accountId);
     
-for(
-Tuple2<Double, Long> sample :samples){
-        tsBuilder.
-
-addSample(sample.f0, sample.f1);
+for(Tuple2<Double, Long> sample :samples){
+        tsBuilder.addSample(sample.f0, sample.f1);
 }
 
 PrometheusTimeSeries ts = tsBuilder.build();
@@ -98,21 +90,20 @@ the [remote-write specifications](https://prometheus.io/docs/concepts/remote_wri
 The sink batches multiple time-series into a single write-request, retaining the order..
 
 Batching is based on the number of samples. Each write-request contains up to 500 samples, with a max buffering time of
-5 seconds
-(both configurable). The number of time-series doesn't matter.
+5 seconds (both configurable). The number of time-series doesn't matter.
 
-As by [Prometheus Remote-Write specifications](https://prometheus.io/docs/concepts/remote_write_spec/#retries-backoff),
-the sink retries 5xx and 429 responses. Retrying is blocking, to retain sample ordering, and uses and exponential
-backoff.
+As by [Prometheus Remote-Write specifications](https://prometheus.io/docs/concepts/remote_write_spec/#retries-backoff), the sink retries 5xx and 429 responses. Retrying is blocking, to 
+retain sample ordering, and uses and exponential backoff.
 
 The exponential backoff starts with an initial delay (default 30 ms) and increases it exponentially up to a max retry
 delay (default 5 sec). It continues retrying until the max number of retries is reached (default reties forever).
 
-On non-retriable error response (4xx, except 429, non retryable exceptions), or on reaching the retry limit, depending
-on
-the configured [error handling behaviour](#error-handling-behavior) for "Max retries exceeded", the sink will either
-throw
-an exception (`FAIL`, default behaviour), or **discard the entire write-request**, log a warning and continue. See
+On non-retriable error response (4xx, except 429, non retryable exceptions) the sink will always discard and continue 
+(`DISCARD_AND_CONTINUE` behavior; see details below).
+
+On reaching the retry limit, depending
+on the configured [error handling behaviour](#error-handling-behavior) for "Max retries exceeded", the sink will either
+throw an exception (`FAIL`, default behaviour), or **discard the entire write-request**, log a warning and continue. See
 [error handling behaviour](#error-handling-behavior), below, for further details.
 
 ### Initializing the sink
@@ -134,8 +125,10 @@ PrometheusSink sink = PrometheusSink.builder()
         .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)  // Remote-write URL
         .setRequestSigner(new AmazonManagedPrometheusWriteRequestSigner(prometheusRemoteWriteUrl, prometheusRegion)) // Optional request signed (AMP request signer in this example)
         .setErrorHandlingBehaviourConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
-                // Error handling behaviors. See description below, for more details. All behaviors default to FAIL   
-                .onPrometheusNonRetriableError(OnErrorBehavior.FAIL)
+                // Error handling behaviors. See description below, for more details.
+                // Default is DISCARD_AND_CONTINUE for non-retriable errors
+                .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE) 
+                // Default is FAIL for other error types
                 .onMaxRetryExceeded(OnErrorBehavior.FAIL)
                 .onHttpClientIOFail(OnErrorBehavior.FAIL)
                 .build())
@@ -183,17 +176,17 @@ PrometheusSink sink = PrometheusSink.builder()
 The behaviour of the sink, when an unrecoverable error happens while writing to Prometheus remote-write endpoint, is
 configurable.
 
+
+The possible behaviors are:
+
+* `FAIL`: throw a `PrometheusSinkWriteException`, causing the job to fail.
+* `DISCARD_AND_CONTINUE`: log the reason of the error, discard the offending request, and continue.
+
 There are 3 error conditions:
 
-1. Prometheus returns a non-retriable error response (i.e. any `4xx` status code except `429`)
-2. Prometheus returns a retriable error response (i.e. `5xx` or `429`) but the max retry limit is exceeded
-3. The http client fails to complete the request, for an I/O error
-
-The default behavior of the sink, for all these three error conditions, is to `FAIL`: throw
-a `PrometheusSinkWriteException`, causing the job to fail.
-
-Optionally, for each of these error conditions independently, the sink can be configured to `DISCARD_AND_CONTINUE`: "
-log, discard the offending request and continue".
+1. Prometheus returns a non-retriable error response (i.e. any `4xx` status code except `429`). Default: `DISCARD_AND_CONTINUE`.
+2. Prometheus returns a retriable error response (i.e. `5xx` or `429`) but the max retry limit is exceeded. Default: `FAIL`.
+3. The http client fails to complete the request, for an I/O error. Default: `FAIL`.
 
 The error handling behaviors can be configured when creating the instance of the sink, as shown in this snipped:
 
@@ -218,6 +211,12 @@ When configured for `DISCARD_AND_CONTINUE`, the sink will do the following:
 Note that there is no partial-failure condition: the entire write-request is discarded regardless what data in the
 request are causing the problem.
 Prometheus does not return sufficient information to automatically handle partial requests.
+
+> In the current connector version, `DISCARD_AND_CONTINUE` is the only supported behavior for non-retriable error.
+> 
+> The behavior cannot be set to `FAIL`. Failing on non-retriable error would make impossible for the application to
+> restart from checkpoint. The reason is that restarting from checkpoint cause some duplicates, that are rejected by
+> Prometheus as out of order, causing in turn another non-retriable error, in an endless loop.
 
 ### Metrics
 

@@ -18,6 +18,7 @@
 package org.apache.flink.connector.prometheus.sink.aws;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.util.Preconditions;
 
@@ -46,32 +47,10 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
     private final URL remoteWriteUrl;
     private final String awsRegion;
 
-    private final AwsCredentialsProvider awsCredProvider;
-
-    /**
-     * Creates a signer instance with a specified credential provider.
-     *
-     * @param remoteWriteUrl URL of the remote-write endpoint
-     * @param awsRegion Region of the AMP workspace
-     * @param awsCredProvider implementation of AwsCredentialsProvider to retrieve the credentials
-     */
-    public AmazonManagedPrometheusWriteRequestSigner(
-            String remoteWriteUrl, String awsRegion, AwsCredentialsProvider awsCredProvider) {
-        Preconditions.checkArgument(
-                StringUtils.isNotBlank(awsRegion), "awsRegion cannot be null or empty");
-        Preconditions.checkArgument(
-                StringUtils.isNotBlank(remoteWriteUrl), "remoteWriteUrl cannot be null or empty");
-        Preconditions.checkArgument(awsCredProvider != null, "credentialsProvider cannot be null");
-
-        this.awsRegion = awsRegion;
-        try {
-            this.remoteWriteUrl = new URL(remoteWriteUrl);
-        } catch (MalformedURLException e) {
-            throw new IllegalArgumentException(
-                    "Invalid AMP remote-write URL: " + remoteWriteUrl, e);
-        }
-        this.awsCredProvider = awsCredProvider;
-    }
+    // The credential provider cannot be created in the constructor or passed as parameter, because
+    // it is not serializable. Flink would fail serializing the sink instance when initializing the
+    // job.
+    private transient AwsCredentialsProvider credentialsProvider;
 
     /**
      * Creates a signer instance using the default AWS credentials provider chain.
@@ -80,7 +59,43 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
      * @param awsRegion Region of the AMP workspace
      */
     public AmazonManagedPrometheusWriteRequestSigner(String remoteWriteUrl, String awsRegion) {
-        this(remoteWriteUrl, awsRegion, DefaultCredentialsProvider.create());
+        Preconditions.checkArgument(
+                StringUtils.isNotBlank(awsRegion), "awsRegion cannot be null or empty");
+        Preconditions.checkArgument(
+                StringUtils.isNotBlank(remoteWriteUrl), "remoteWriteUrl cannot be null or empty");
+
+        this.awsRegion = awsRegion;
+        try {
+            this.remoteWriteUrl = new URL(remoteWriteUrl);
+        } catch (MalformedURLException e) {
+            throw new IllegalArgumentException(
+                    "Invalid AMP remote-write URL: " + remoteWriteUrl, e);
+        }
+    }
+
+    /**
+     * Setting the credential provider explicitly is exposed, at package level only, for testing
+     * signature generaiton with different types of credentials. In the actual application, the
+     * credential provider must be initialized lazily, because AwsCredentialsProvider
+     * implementations are not serializable.
+     *
+     * @param credentialsProvider an instance of AwsCredentialsProvider
+     */
+    @VisibleForTesting
+    void setCredentialsProvider(AwsCredentialsProvider credentialsProvider) {
+        this.credentialsProvider = credentialsProvider;
+    }
+
+    /**
+     * Initialize the credentials provider lazily.
+     *
+     * @return an instance of DefaultCredentialsProvider.
+     */
+    private AwsCredentialsProvider getCredentialsProvider() {
+        if (credentialsProvider == null) {
+            credentialsProvider = DefaultCredentialsProvider.create();
+        }
+        return credentialsProvider;
     }
 
     /**
@@ -100,7 +115,7 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
         requestHeaders.put(X_AMZ_CONTENT_SHA_256, contentHashString);
 
         // Get the credentials from the default credential provider chain
-        AwsCredentials awsCreds = awsCredProvider.resolveCredentials();
+        AwsCredentials awsCreds = getCredentialsProvider().resolveCredentials();
 
         // If the credentials are from a session, also get the session token
         String sessionToken =

@@ -20,6 +20,7 @@ package org.apache.flink.connector.prometheus.sink;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SinkWriterErrorHandlingBehaviorConfigurationTest {
 
@@ -44,9 +45,21 @@ class SinkWriterErrorHandlingBehaviorConfigurationTest {
     }
 
     @Test
-    public void shouldDefaultToFailOnPrometheusNonRetriableError() {
+    public void shouldDefaultToDiscardAndContinueOnPrometheusNonRetriableError() {
         assertEquals(
-                PrometheusSinkConfiguration.OnErrorBehavior.FAIL,
+                PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE,
                 DEFAULT_CONFIG.getOnPrometheusNonRetriableError());
+    }
+
+    @Test
+    public void shouldPreventSettingContinueOnPrometheusNonRetriableErrorToFail() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
+                                .builder()
+                                .onPrometheusNonRetriableError(
+                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                                .build());
     }
 }

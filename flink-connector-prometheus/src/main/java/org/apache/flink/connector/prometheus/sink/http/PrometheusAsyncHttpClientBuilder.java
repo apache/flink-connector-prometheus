@@ -59,6 +59,7 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
         int actualSocketTimeoutMs =
                 Optional.ofNullable(socketTimeoutMs).orElse(DEFAULT_SOCKET_TIMEOUT_MS);
 
+        Preconditions.checkNotNull(retryConfiguration, "Missing retry configuration");
         Preconditions.checkArgument(
                 retryConfiguration.getInitialRetryDelayMS() >= 0,
                 "Initial retry delay must be >= 0");

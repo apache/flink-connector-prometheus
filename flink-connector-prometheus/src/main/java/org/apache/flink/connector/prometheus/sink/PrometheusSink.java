@@ -28,8 +28,11 @@ import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.util.Preconditions;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collection;
 
 /** Sink implementation accepting {@link PrometheusTimeSeries} as inputs. */
@@ -73,8 +76,22 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 maxRecordSizeInSamples // maxRecordSizeInBytes
                 );
 
-        Preconditions.checkArgument(maxInFlightRequests == 1, "maxInFlightRequests must be 1");
-
+        Preconditions.checkArgument(
+                maxBatchSizeInSamples > 1, "Max batch size (in samples) must be positive");
+        Preconditions.checkArgument(
+                maxRecordSizeInSamples <= maxBatchSizeInSamples,
+                "Maz record size (in samples) must be <= Max batch size");
+        Preconditions.checkArgument(maxInFlightRequests == 1, "Max in-flight requests must be 1");
+        Preconditions.checkArgument(
+                StringUtils.isNotBlank(prometheusRemoteWriteUrl),
+                "Missing or blank Prometheus Remote-Write URL");
+        checkValidRemoteWriteUrl(prometheusRemoteWriteUrl);
+        Preconditions.checkArgument(
+                StringUtils.isNotBlank(httpUserAgent), "Missing HTTP User Agent string");
+        Preconditions.checkNotNull(
+                errorHandlingBehaviorConfig, "Missing error handling configuration");
+        Preconditions.checkArgument(
+                StringUtils.isNotBlank(metricGroupName), "Missing metric group name");
         this.maxBatchSizeInSamples = maxBatchSizeInSamples;
         this.requestSigner = requestSigner;
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
@@ -146,5 +163,13 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     public SimpleVersionedSerializer<BufferedRequestState<Types.TimeSeries>>
             getWriterStateSerializer() {
         return new PrometheusStateSerializer();
+    }
+
+    private static void checkValidRemoteWriteUrl(String url) {
+        try {
+            new URL(url);
+        } catch (MalformedURLException mue) {
+            throw new IllegalArgumentException("Invalid Remote-Write URL: " + url, mue);
+        }
     }
 }
