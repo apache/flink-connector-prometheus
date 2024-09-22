@@ -18,10 +18,12 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
 import java.util.Optional;
 
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE;
 import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.OnErrorBehavior.FAIL;
 
 /** This class contains configuration classes for different components of the Prometheus sink. */
@@ -46,7 +48,7 @@ public class PrometheusSinkConfiguration {
         public static final OnErrorBehavior ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR = FAIL;
         public static final OnErrorBehavior ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR = FAIL;
         public static final OnErrorBehavior ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR =
-                FAIL;
+                DISCARD_AND_CONTINUE;
 
         /** Behaviour when the max retries is exceeded on Prometheus retriable errors. */
         private final OnErrorBehavior onMaxRetryExceeded;
@@ -61,6 +63,13 @@ public class PrometheusSinkConfiguration {
                 OnErrorBehavior onMaxRetryExceeded,
                 OnErrorBehavior onHttpClientIOFail,
                 OnErrorBehavior onPrometheusNonRetriableError) {
+            // onPrometheusNonRetriableError cannot be set to FAIL, because it makes impossible for
+            // the job to restart from checkpoint (see FLINK-36319).
+            // We are retaining the possibility of configuring the behavior on this type of error to
+            // allow implementing a different type of behavior.
+            Preconditions.checkArgument(
+                    onPrometheusNonRetriableError == DISCARD_AND_CONTINUE,
+                    "Only DISCARD_AND_CONTINUE is currently supported for onPrometheusNonRetriableError");
             this.onMaxRetryExceeded = onMaxRetryExceeded;
             this.onHttpClientIOFail = onHttpClientIOFail;
             this.onPrometheusNonRetriableError = onPrometheusNonRetriableError;
@@ -178,5 +187,8 @@ public class PrometheusSinkConfiguration {
                 return new RetryConfiguration(initialRetryDelayMS, maxRetryDelayMS, maxRetryCount);
             }
         }
+
+        public static final RetryConfiguration DEFAULT_RETRY_CONFIGURATION =
+                new RetryConfiguration.Builder().build();
     }
 }

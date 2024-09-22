@@ -22,14 +22,10 @@ import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.AsyncSinkBaseBuilder;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
-import org.apache.flink.util.Preconditions;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.Optional;
 
 /** Builder for Sink implementation. */
@@ -74,7 +70,7 @@ public class PrometheusSinkBuilder
                 Optional.ofNullable(getMaxTimeInBufferMS()).orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS);
 
         int actualMaxRecordSizeInSamples =
-                Optional.ofNullable(maxRecordSizeInSamples).orElse(maxBatchSizeInSamples);
+                Optional.ofNullable(maxRecordSizeInSamples).orElse(actualMaxBatchSizeInSamples);
 
         int actualSocketTimeoutMs =
                 Optional.ofNullable(socketTimeoutMs)
@@ -92,25 +88,19 @@ public class PrometheusSinkBuilder
                                                 .SinkWriterErrorHandlingBehaviorConfiguration
                                                 .DEFAULT_BEHAVIORS);
 
+        PrometheusSinkConfiguration.RetryConfiguration actualRetryConfiguration =
+                Optional.ofNullable(retryConfiguration)
+                        .orElse(
+                                PrometheusSinkConfiguration.RetryConfiguration
+                                        .DEFAULT_RETRY_CONFIGURATION);
+
         String actualMetricGroupName =
                 Optional.ofNullable(metricGroupName).orElse(DEFAULT_METRIC_GROUP_NAME);
-
-        Preconditions.checkArgument(
-                StringUtils.isNotBlank(prometheusRemoteWriteUrl),
-                "Missing or blank Prometheus Remote-Write URL");
-        checkValidRemoteWriteUrl(prometheusRemoteWriteUrl);
-        Preconditions.checkNotNull(retryConfiguration, "Missing retry configuration");
-        Preconditions.checkArgument(
-                actualMaxBatchSizeInSamples > 0, "Max batch size (in samples) must be positive");
-        Preconditions.checkArgument(
-                actualMaxRecordSizeInSamples <= actualMaxBatchSizeInSamples,
-                "Max record size (in samples) must be <= Max batch size");
-
         LOG.info(
                 "Prometheus sink configuration:"
                         + "\n\t\tmaxBatchSizeInSamples={}\n\t\tmaxRecordSizeInSamples={}"
                         + "\n\t\tmaxTimeInBufferMs={}\n\t\tmaxInFlightRequests={}\n\t\tmaxBufferedRequests={}"
-                        + "\n\t\tinitialRetryDelayMs={}\n\t\tmaxRetryDelayMs={}\n\t\tmaxRetryCount={}"
+                        + "\n\t\tRetryConfiguration: initialRetryDelayMs={}, maxRetryDelayMs={}, maxRetryCount={}"
                         + "\n\t\tsocketTimeoutMs={}\n\t\thttpUserAgent={}"
                         + "\n\t\tErrorHandlingBehaviour: onMaxRetryExceeded={}, onHttpClientIOFailure={}, onNonRetriableError={}",
                 actualMaxBatchSizeInSamples,
@@ -118,9 +108,9 @@ public class PrometheusSinkBuilder
                 actualMaxTimeInBufferMS,
                 MAX_IN_FLIGHT_REQUESTS,
                 actualMaxBufferedRequests,
-                retryConfiguration.getInitialRetryDelayMS(),
-                retryConfiguration.getMaxRetryDelayMS(),
-                retryConfiguration.getMaxRetryCount(),
+                actualRetryConfiguration.getInitialRetryDelayMS(),
+                actualRetryConfiguration.getMaxRetryDelayMS(),
+                actualRetryConfiguration.getMaxRetryCount(),
                 socketTimeoutMs,
                 actualHttpUserAgent,
                 actualErrorHandlingBehaviorConfig.getOnMaxRetryExceeded(),
@@ -135,20 +125,12 @@ public class PrometheusSinkBuilder
                 actualMaxRecordSizeInSamples,
                 actualMaxTimeInBufferMS,
                 prometheusRemoteWriteUrl,
-                new PrometheusAsyncHttpClientBuilder(retryConfiguration)
+                new PrometheusAsyncHttpClientBuilder(actualRetryConfiguration)
                         .setSocketTimeout(actualSocketTimeoutMs),
                 requestSigner,
                 actualHttpUserAgent,
                 actualErrorHandlingBehaviorConfig,
                 actualMetricGroupName);
-    }
-
-    private static void checkValidRemoteWriteUrl(String url) {
-        try {
-            new URL(url);
-        } catch (MalformedURLException mue) {
-            throw new IllegalArgumentException("Invalid Remote-Write URL: " + url, mue);
-        }
     }
 
     public PrometheusSinkBuilder setPrometheusRemoteWriteUrl(String prometheusRemoteWriteUrl) {

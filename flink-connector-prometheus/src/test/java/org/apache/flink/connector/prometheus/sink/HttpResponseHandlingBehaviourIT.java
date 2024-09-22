@@ -45,6 +45,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.assertCallbackCompletedOnceWithException;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.assertCallbackCompletedOnceWithNoException;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.getRequestResult;
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR;
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR;
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR;
 import static org.awaitility.Awaitility.await;
 
 /**
@@ -111,17 +114,15 @@ public class HttpResponseHandlingBehaviourIT {
         int statusCode = 200;
         serverWillRespond(status(statusCode));
 
-        // Fail on any error
+        // Default behaviors for all errors
         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                 errorHandlingBehavior =
                         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                                 .builder()
-                                .onMaxRetryExceeded(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
-                                .onHttpClientIOFail(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                                .onMaxRetryExceeded(ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR)
+                                .onHttpClientIOFail(ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR)
                                 .onPrometheusNonRetriableError(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                                        ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR)
                                 .build();
 
         VerifyableResponseCallback callback =
@@ -261,44 +262,6 @@ public class HttpResponseHandlingBehaviourIT {
 
                                 // Verify the callback is completed
                                 assertCallbackCompletedOnceWithNoException(callback);
-                            });
-        }
-    }
-
-    @Test
-    void shouldNotRetryAndCompleteAndThrowExceptionOn404WhenFailOnNonRetriableIsSelected(
-            WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
-        PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
-
-        // 404,Not found is non-retriable for Prometheus remote-write
-        int statusCode = 404;
-        serverWillRespond(status(statusCode));
-
-        // Fail on non-retriable
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onPrometheusNonRetriableError(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
-                                .build();
-
-        VerifyableResponseCallback callback =
-                getResponseCallback(metricsCallback, errorHandlingBehavior);
-
-        SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
-
-        try (CloseableHttpAsyncClient client = clientBuilder.buildAndStartClient(metricsCallback)) {
-            client.execute(request, callback);
-
-            await().untilAsserted(
-                            () -> {
-                                // Check the client execute only one request
-                                verify(exactly(1), postRequestedFor(urlEqualTo("/remote_write")));
-
-                                // Verify the callback was completed once with an exception
-                                assertCallbackCompletedOnceWithException(
-                                        PrometheusSinkWriteException.class, callback);
                             });
         }
     }

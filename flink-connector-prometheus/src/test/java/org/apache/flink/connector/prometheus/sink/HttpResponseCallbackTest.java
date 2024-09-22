@@ -30,6 +30,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR;
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR;
+import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -57,12 +60,10 @@ class HttpResponseCallbackTest {
                 errorHandlingBehavior =
                         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                                 .builder()
-                                .onMaxRetryExceeded(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
-                                .onHttpClientIOFail(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                                .onMaxRetryExceeded(ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR)
+                                .onHttpClientIOFail(ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR)
                                 .onPrometheusNonRetriableError(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                                        ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR)
                                 .build();
 
         HttpResponseCallback callback =
@@ -82,33 +83,6 @@ class HttpResponseCallbackTest {
 
         // No time series is re-queued
         HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
-    }
-
-    @Test
-    void shouldThrowExceptionOnCompletedWith404WhenFailOnNonRetriableIsSelected() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onPrometheusNonRetriableError(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
-                                .build();
-
-        HttpResponseCallback callback =
-                new HttpResponseCallback(
-                        TIME_SERIES_COUNT,
-                        SAMPLE_COUNT,
-                        metricsCallback,
-                        errorHandlingBehavior,
-                        requestResults);
-
-        SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_NOT_FOUND);
-
-        assertThrows(
-                PrometheusSinkWriteException.class,
-                () -> {
-                    callback.completed(httpResponse);
-                });
     }
 
     @Test
