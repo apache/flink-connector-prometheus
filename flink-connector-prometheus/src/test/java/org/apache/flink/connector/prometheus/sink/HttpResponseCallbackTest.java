@@ -86,7 +86,7 @@ class HttpResponseCallbackTest {
     }
 
     @Test
-    void shouldIncFailCountersOnCompletedWith404WhenDiscardAndContinueOnNonRetriableIsSelected() {
+    void shouldIncFailCountersOnCompletedWith400WhenDiscardAndContinueOnNonRetriableIsSelected() {
         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                 errorHandlingBehavior =
                         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
@@ -104,7 +104,7 @@ class HttpResponseCallbackTest {
                         errorHandlingBehavior,
                         requestResults);
 
-        SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_NOT_FOUND);
+        SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_BAD_REQUEST);
 
         callback.completed(httpResponse);
 
@@ -176,21 +176,36 @@ class HttpResponseCallbackTest {
 
     @Test
     void shouldThrowExceptionOnCompletedWith100() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .build();
-
         HttpResponseCallback callback =
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
-                        errorHandlingBehavior,
+                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
+                                .DEFAULT_BEHAVIORS,
                         requestResults);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(100);
+
+        assertThrows(
+                PrometheusSinkWriteException.class,
+                () -> {
+                    callback.completed(httpResponse);
+                });
+    }
+
+    @Test
+    void shouldThrowExceptionOnCompletedWith403() {
+        HttpResponseCallback callback =
+                new HttpResponseCallback(
+                        TIME_SERIES_COUNT,
+                        SAMPLE_COUNT,
+                        metricsCallback,
+                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
+                                .DEFAULT_BEHAVIORS,
+                        requestResults);
+
+        SimpleHttpResponse httpResponse = new SimpleHttpResponse(403);
 
         assertThrows(
                 PrometheusSinkWriteException.class,

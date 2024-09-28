@@ -105,6 +105,17 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
         int statusCode = response.getCode();
         String reasonPhrase = response.getReasonPhrase();
 
+        // Prometheus's response is a fatal error, regardless of configured behaviour
+        if (RemoteWriteResponseClassifier.isFatalErrorResponse(response)) {
+            throw new PrometheusSinkWriteException(
+                    "Fatal error response from Prometheus",
+                    statusCode,
+                    reasonPhrase,
+                    timeSeriesCount,
+                    sampleCount,
+                    responseBody);
+        }
+
         // Prometheus's response is a non-retriable error.
         // Depending on the configured behaviour, log and discard or throw an exception
         if (RemoteWriteResponseClassifier.isNonRetriableErrorResponse(response)) {
