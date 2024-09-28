@@ -31,11 +31,23 @@ public class RemoteWriteResponseClassifier {
 
     public static boolean isNonRetriableErrorResponse(HttpResponse response) {
         int statusCode = response.getCode();
-        return (statusCode >= 400 && statusCode < 500) && statusCode != 429;
+        return (statusCode >= 400 && statusCode < 500)
+                && statusCode != 429
+                && !isFatalErrorResponse(response);
     }
 
     public static boolean isSuccessResponse(HttpResponse response) {
         int statusCode = response.getCode();
         return (statusCode >= 200 && statusCode < 300);
+    }
+
+    public static boolean isFatalErrorResponse(HttpResponse response) {
+        int statusCode = response.getCode();
+        switch (statusCode) {
+            case 403:
+            case 404:
+                return true;
+        }
+        return false;
     }
 }

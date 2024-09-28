@@ -218,6 +218,12 @@ Prometheus does not return sufficient information to automatically handle partia
 > restart from checkpoint. The reason is that restarting from checkpoint cause some duplicates, that are rejected by
 > Prometheus as out of order, causing in turn another non-retriable error, in an endless loop.
 
+
+### Fatal errors
+
+Remote-write endpoint responses 403 (Forbidden) and 404 (Not found) are always considered fatal, regardless the error 
+handling configuration.
+
 ### Metrics
 
 The sink exposes custom metrics, counting the samples and write-requests (batches) successfully written or discarded.
