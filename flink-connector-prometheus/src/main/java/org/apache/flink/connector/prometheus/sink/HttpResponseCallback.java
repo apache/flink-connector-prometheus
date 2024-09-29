@@ -107,13 +107,14 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
 
         // Prometheus's response is a fatal error, regardless of configured behaviour
         if (RemoteWriteResponseClassifier.isFatalErrorResponse(response)) {
-            throw new PrometheusSinkWriteException(
-                    "Fatal error response from Prometheus",
-                    statusCode,
-                    reasonPhrase,
-                    timeSeriesCount,
-                    sampleCount,
-                    responseBody);
+            logErrorAndThrow(
+                    new PrometheusSinkWriteException(
+                            "Fatal error response from Prometheus",
+                            statusCode,
+                            reasonPhrase,
+                            timeSeriesCount,
+                            sampleCount,
+                            responseBody));
         }
 
         // Prometheus's response is a non-retriable error.
@@ -121,13 +122,14 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
         if (RemoteWriteResponseClassifier.isNonRetriableErrorResponse(response)) {
             if (errorHandlingBehaviorConfig.getOnPrometheusNonRetriableError()
                     == PrometheusSinkConfiguration.OnErrorBehavior.FAIL) {
-                throw new PrometheusSinkWriteException(
-                        "Non-retriable error response from Prometheus",
-                        statusCode,
-                        reasonPhrase,
-                        timeSeriesCount,
-                        sampleCount,
-                        responseBody);
+                logErrorAndThrow(
+                        new PrometheusSinkWriteException(
+                                "Non-retriable error response from Prometheus",
+                                statusCode,
+                                reasonPhrase,
+                                timeSeriesCount,
+                                sampleCount,
+                                responseBody));
             }
 
             LOG.warn(
@@ -146,13 +148,14 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
         if (RemoteWriteResponseClassifier.isRetriableErrorResponse(response)) {
             if (errorHandlingBehaviorConfig.getOnMaxRetryExceeded()
                     == PrometheusSinkConfiguration.OnErrorBehavior.FAIL) {
-                throw new PrometheusSinkWriteException(
-                        "Max retry limit exceeded on retriable error",
-                        statusCode,
-                        reasonPhrase,
-                        timeSeriesCount,
-                        sampleCount,
-                        responseBody);
+                logErrorAndThrow(
+                        new PrometheusSinkWriteException(
+                                "Max retry limit exceeded on retriable error",
+                                statusCode,
+                                reasonPhrase,
+                                timeSeriesCount,
+                                sampleCount,
+                                responseBody));
             }
 
             LOG.warn(
@@ -167,35 +170,35 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
         }
 
         // Unexpected/unhandled response outcome
-        throw new PrometheusSinkWriteException(
-                "Unexpected status code returned from the remote-write endpoint",
-                statusCode,
-                reasonPhrase,
-                timeSeriesCount,
-                sampleCount,
-                responseBody);
+        logErrorAndThrow(
+                new PrometheusSinkWriteException(
+                        "Unexpected status code returned from the remote-write endpoint",
+                        statusCode,
+                        reasonPhrase,
+                        timeSeriesCount,
+                        sampleCount,
+                        responseBody));
     }
 
     @Override
     public void failed(Exception ex) {
         // General I/O failure reported by http client
-        // Depending on the configured behavior, throw an exception or log and discard
-        if (errorHandlingBehaviorConfig.getOnHttpClientIOFail()
-                == PrometheusSinkConfiguration.OnErrorBehavior.FAIL) {
-            throw new PrometheusSinkWriteException("Http client failure", ex);
-        } else {
-            LOG.warn(
-                    "Exception executing the remote-write (discarded {} time-series containing {} samples)",
-                    timeSeriesCount,
-                    sampleCount,
-                    ex);
-            metricsCallback.onFailedWriteRequestForHttpClientIoFail(sampleCount);
-        }
+        // Always fail
+        throw new PrometheusSinkWriteException("Http client failure", ex);
     }
 
     @Override
     public void cancelled() {
         // When the async http client is cancelled, the sink always throws an exception
         throw new PrometheusSinkWriteException("Write request execution cancelled");
+    }
+
+    /**
+     * Log the exception at ERROR and rethrow. It will be intercepted up the client stack, by the
+     * {@link org.apache.flink.connector.prometheus.sink.http.RethrowingIOSessionListener}.
+     */
+    private void logErrorAndThrow(PrometheusSinkWriteException ex) {
+        LOG.error("Error condition detected but the http response callback (on complete)", ex);
+        throw ex;
     }
 }

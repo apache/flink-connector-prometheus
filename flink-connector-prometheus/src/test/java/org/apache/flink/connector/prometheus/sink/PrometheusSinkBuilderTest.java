@@ -52,9 +52,6 @@ class PrometheusSinkBuilderTest {
                                         PrometheusSinkConfiguration
                                                 .SinkWriterErrorHandlingBehaviorConfiguration
                                                 .builder()
-                                                .onHttpClientIOFail(
-                                                        PrometheusSinkConfiguration.OnErrorBehavior
-                                                                .FAIL)
                                                 .onMaxRetryExceeded(
                                                         PrometheusSinkConfiguration.OnErrorBehavior
                                                                 .FAIL)

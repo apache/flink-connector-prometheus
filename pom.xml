@@ -54,7 +54,8 @@ under the License.
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <flink.version>1.19.1</flink.version>
         <protobuf.version>3.22.2</protobuf.version>
-        <apache.httpclient.version>5.2.1</apache.httpclient.version>
+        <apache.httpcomponents.version>5.3</apache.httpcomponents.version>
+        <apache.httpcomponents.client.version>5.3.1</apache.httpcomponents.client.version>
         <jackson-bom.version>2.14.3</jackson-bom.version>
         <log4j.version>2.17.1</log4j.version>
         <junit5.version>5.8.1</junit5.version>
@@ -95,12 +96,12 @@ under the License.
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>${apache.httpclient.version}</version>
+                <version>${apache.httpcomponents.client.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents.core5</groupId>
                 <artifactId>httpcore5</artifactId>
-                <version>${apache.httpclient.version}</version>
+                <version>${apache.httpcomponents.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.xerial.snappy</groupId>

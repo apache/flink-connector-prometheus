@@ -45,9 +45,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.assertCallbackCompletedOnceWithException;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.assertCallbackCompletedOnceWithNoException;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.getRequestResult;
-import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR;
-import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR;
-import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR;
 import static org.awaitility.Awaitility.await;
 
 /**
@@ -115,18 +112,11 @@ public class HttpResponseHandlingBehaviourIT {
         serverWillRespond(status(statusCode));
 
         // Default behaviors for all errors
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onMaxRetryExceeded(ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR)
-                                .onHttpClientIOFail(ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR)
-                                .onPrometheusNonRetriableError(
-                                        ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR)
-                                .build();
-
         VerifyableResponseCallback callback =
-                getResponseCallback(metricsCallback, errorHandlingBehavior);
+                getResponseCallback(
+                        metricsCallback,
+                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
+                                .DEFAULT_BEHAVIORS);
 
         SimpleHttpRequest request = buildRequest(wmRuntimeInfo);
 

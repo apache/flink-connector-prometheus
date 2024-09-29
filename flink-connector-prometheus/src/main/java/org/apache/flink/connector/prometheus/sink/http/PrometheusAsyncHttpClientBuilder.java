@@ -88,6 +88,7 @@ public class PrometheusAsyncHttpClientBuilder implements Serializable {
                 HttpAsyncClients.custom()
                         .setConnectionManager(connectionManager)
                         .setIOReactorConfig(ioReactorConfig)
+                        .setIOSessionListener(new RethrowingIOSessionListener())
                         .setRetryStrategy(
                                 new RemoteWriteRetryStrategy(retryConfiguration, metricsCallback))
                         .build();

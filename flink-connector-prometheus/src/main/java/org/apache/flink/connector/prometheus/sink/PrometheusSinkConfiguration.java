@@ -46,23 +46,17 @@ public class PrometheusSinkConfiguration {
     public static class SinkWriterErrorHandlingBehaviorConfiguration implements Serializable {
 
         public static final OnErrorBehavior ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR = FAIL;
-        public static final OnErrorBehavior ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR = FAIL;
         public static final OnErrorBehavior ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR =
                 DISCARD_AND_CONTINUE;
 
         /** Behaviour when the max retries is exceeded on Prometheus retriable errors. */
         private final OnErrorBehavior onMaxRetryExceeded;
 
-        /** Behaviour when the HTTP client fails, for an I/O problem. */
-        private final OnErrorBehavior onHttpClientIOFail;
-
         /** Behaviour when Prometheus Remote-Write respond with a non-retriable error. */
         private final OnErrorBehavior onPrometheusNonRetriableError;
 
         public SinkWriterErrorHandlingBehaviorConfiguration(
-                OnErrorBehavior onMaxRetryExceeded,
-                OnErrorBehavior onHttpClientIOFail,
-                OnErrorBehavior onPrometheusNonRetriableError) {
+                OnErrorBehavior onMaxRetryExceeded, OnErrorBehavior onPrometheusNonRetriableError) {
             // onPrometheusNonRetriableError cannot be set to FAIL, because it makes impossible for
             // the job to restart from checkpoint (see FLINK-36319).
             // We are retaining the possibility of configuring the behavior on this type of error to
@@ -71,16 +65,11 @@ public class PrometheusSinkConfiguration {
                     onPrometheusNonRetriableError == DISCARD_AND_CONTINUE,
                     "Only DISCARD_AND_CONTINUE is currently supported for onPrometheusNonRetriableError");
             this.onMaxRetryExceeded = onMaxRetryExceeded;
-            this.onHttpClientIOFail = onHttpClientIOFail;
             this.onPrometheusNonRetriableError = onPrometheusNonRetriableError;
         }
 
         public OnErrorBehavior getOnMaxRetryExceeded() {
             return onMaxRetryExceeded;
-        }
-
-        public OnErrorBehavior getOnHttpClientIOFail() {
-            return onHttpClientIOFail;
         }
 
         public OnErrorBehavior getOnPrometheusNonRetriableError() {
@@ -90,18 +79,12 @@ public class PrometheusSinkConfiguration {
         /** Builder for PrometheusSinkWriterErrorHandlingConfiguration. */
         public static class Builder {
             private OnErrorBehavior onMaxRetryExceeded = null;
-            private OnErrorBehavior onHttpClientIOFail = null;
             private OnErrorBehavior onPrometheusNonRetriableError = null;
 
             public Builder() {}
 
             public Builder onMaxRetryExceeded(OnErrorBehavior onErrorBehavior) {
                 this.onMaxRetryExceeded = onErrorBehavior;
-                return this;
-            }
-
-            public Builder onHttpClientIOFail(OnErrorBehavior onErrorBehavior) {
-                this.onHttpClientIOFail = onErrorBehavior;
                 return this;
             }
 
@@ -114,8 +97,6 @@ public class PrometheusSinkConfiguration {
                 return new SinkWriterErrorHandlingBehaviorConfiguration(
                         Optional.ofNullable(onMaxRetryExceeded)
                                 .orElse(ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR),
-                        Optional.ofNullable(onHttpClientIOFail)
-                                .orElse(ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR),
                         Optional.ofNullable(onPrometheusNonRetriableError)
                                 .orElse(ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR));
             }
@@ -153,6 +134,12 @@ public class PrometheusSinkConfiguration {
 
         public RetryConfiguration(
                 long initialRetryDelayMS, long maxRetryDelayMS, int maxRetryCount) {
+            Preconditions.checkArgument(initialRetryDelayMS > 0, "Initial retry delay must be > 0");
+            Preconditions.checkArgument(maxRetryDelayMS > 0, "Max retry delay must be > 0");
+            Preconditions.checkArgument(
+                    maxRetryDelayMS >= initialRetryDelayMS,
+                    "Max retry delay must be >= Initial retry delay");
+            Preconditions.checkArgument(maxRetryCount > 0, "Max retry count must be > 0");
             this.initialRetryDelayMS = initialRetryDelayMS;
             this.maxRetryDelayMS = maxRetryDelayMS;
             this.maxRetryCount = maxRetryCount;
