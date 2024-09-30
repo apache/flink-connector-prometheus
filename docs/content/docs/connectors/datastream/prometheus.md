@@ -28,7 +28,9 @@ under the License.
 
 # Prometheus Sink
 
-This sink connector can be used to write **data** to Prometheus, using Prometheus [Remote-Write](https://prometheus.io/docs/specs/remote_write_spec/) interface.
+This sink connector can be used to write **data** to Prometheus-compatible storage, using the [Remote Write](https://prometheus.io/docs/specs/remote_write_spec/) Prometheus interface.
+
+The Prometheus-compatible backend must support [Remote Write 1.0](https://prometheus.io/docs/specs/remote_write_spec/) standard API, and the Remote Write endpoint must  be enabled.
 
 {{< hint warn >}}This connector is not meant for sending internal Flink metrics to Prometheus.
 To publish Flink metrics, for monitoring health and operations of the Flink cluster, you should use 
@@ -38,11 +40,10 @@ To use the connector, add the following Maven dependency to your project:
 
 {{< connector_artifact flink-connector-prometheus prometheus >}}
 
-
 ## Usage
 
-The Prometheus sink provides a build class for constructing instance of `PrometheusSink`. The code snippets below shows 
-how to build a `PrometheusSink` also using a [request signer](#request-signer), and [customizing the error handling behavior](#error-handling-configuration).
+The Prometheus sink provides a builder class to build a `PrometheusSink` instance. The code snippets below shows 
+how to build a `PrometheusSink` with a basic configuration, and adding an optional [request signer](#request-signer).
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
@@ -52,37 +53,38 @@ PrometheusSink sink = PrometheusSink.builder()
 ```
 The only **required** configuration `prometheusRemoteWriteUrl`. All other configurations are optional.
 
-If your sink has parallelism > 1 you need to ensure the stream is keyed to ensure all samples of the same time-series 
-are in the same partition. See [Sink parallelism and keyed streams](#sink-parallelism-and-keyed-streams) for details.
+If your sink has parallelism > 1, you need to ensure the stream is keyed using the `PrometheusTimeSeriesLabelsAndMetricNameKeySelector` 
+key selector, so that all samples of the same time-series are in the same partition and order is not lost.
+See [Sink parallelism and keyed streams](#sink-parallelism-and-keyed-streams) for more details.
 
 
-### PrometheusTimeSeries input data objects
+### Input data objects
 
-The sink expects [`PrometheusTimeSeries`](#prometheustimeseries-input-data-objects) records as input.
-Converting your record into `PrometheusTimeSeries` is a responsibility of the application, using a map or flatMap operator.
+The sink expects `PrometheusTimeSeries` records as input.
+Your input data must be converted into `PrometheusTimeSeries`, using a map or flatMap operator, before the sending to the sink.
 
-`PrometheusTimeSeries` provides a [builder interface](#populating-prometheustimeseries) to create and populate instances.
-Instances are immutable and cannot be reused.
+`PrometheusTimeSeries` instances are immutable and cannot be reused. You can use the [builder](#populating-a-prometheustimeseries)
+to create and populate instances.
 
-Each `PrometheusTimeSeries` represents a single time-series record of the Remote-Write interface.
+A `PrometheusTimeSeries` represents a single time-series record of sent to the Remote Write interface. Each time-series 
+record may contain multiple samples.
 
 {{< hint info >}}
-The term "time-series" in the context of Prometheus is overloaded.
+In the context of Prometheus the term "time-series" is overloaded.
 It means both *a series of samples with a unique set of labels* (a time-series in the underlying time-series database),
-and *a record sent to the Remote-Write interface*. A `PrometheusTimeSeries` instance represents a record sent to 
-Remote-Write.
+and *a record sent to the Remote Write interface*. A `PrometheusTimeSeries` instance represents a record sent to the interface.
 
-The two concepts are related, because all time-series "records" with identical set of labels are sent to the same
-time-series of the datastore.
-{{< /hint >}}
+The two concepts are related, because time-series "records" with the same sets of labels are sent to the same
+"database time-series".{{< /hint >}}
 
 Each `PrometheusTimeSeries` record contains:
 
 - One **`metricName`**. A string that translated into the value of the `__name__` label.
-- Zero or more **`Label`**. Each label contains a `key` and a `value`, both `String`. 
+- Zero or more **`Label`**. Each label has a `key` and a `value`, both `String`. 
   Labels represent additional dimensions of the samples. Duplicate Label keys are not allowed.
 - One or more **`Sample`**. Each sample has a `value` (`double`) representing the measure, and
-  a `timestamp` (`long`) representing the time of the measure, in milliseconds from the Epoch.
+  a `timestamp` (`long`) representing the time of the measure, in milliseconds from the Epoch. 
+  Duplicate timestamps in the same record are not allowred.
 
 The following pseudocode represents the structure of a `PrometheusTimeSeries` record:
 
@@ -97,10 +99,12 @@ PrometheusTimeSeries
             + value <double>   
 ```
 
-{{< hint info >}}The set of labels and the metric name is the unique identifier of the time-series in the datastore.{{< /hint >}}
+{{< hint info >}}The set of Labels and metricName are the unique identifier of the database time-series.
+A composite of all Lables and metricName is also the key you should use to partition data, inside the Flink application 
+and upstream, to guarantee ordering per time-series is retained.{{< /hint >}}
 
 
-### Populating PrometheusTimeSeries
+### Populating a PrometheusTimeSeries
 
 `PrometheusTimeSeries` provides a builder interface.
 
@@ -115,81 +119,79 @@ PrometheusTimeSeries inputRecord =
                 .build();
 ```
 
-Each `PrometheusTimeSeries` instance can contain multiple samples and you can call `.addSample(...)` multiple times.
+Each `PrometheusTimeSeries` instance can contain multiple samples. Call `.addSample(...)` multiple times to add each of them.
+The order samples are added is retained.
 The max number of samples per record is limited by the `maxBatchSizeInSamples` configuration.
 
-Note that aggregating multiple samples into a single `PrometheusTimeSeries` record may improve write performances.
+Aggregating multiple samples into a single `PrometheusTimeSeries` record may improve write performances.
 
 
 ## Prometheus remote-write constraints
 
-Prometheus imposes strict constrains on data format and ordering. Any write request violating these constraints is rejected.
+Prometheus imposes strict constrains on data format and on ordering. 
+Any write request containing records that violate these constraints is rejected.
 
-For details about Prometheus Remote-Write interface constraints, see [Remote-Write specification](https://prometheus.io/docs/specs/remote_write_spec).
+See [Remote Write specification](https://prometheus.io/docs/specs/remote_write_spec) for details about these constrains.
 
-In practice, the behavior of the Remote-Write endpoint varies based on the Prometheus implementation and its configuration, 
-and some of these constraints may be relaxed.
+In practice, the behavior when write data to a Prometheus-compatible backend, depends on the Prometheus implementation and configuration.
+In some cases, these constraints are relaxed, and writes violating the Remote Write specifications may be accepted.
 
-The Flink Prometheus connector **does not enforce** any data constraints directly. The user is responsible of sending well-formed and
-in-order data to the sink, respecting the actual constraints of the Prometheus implementation in use. 
-For more details, see [User responsibilities](#user-responsibilities)
+For this reason, this connector **does not enforce** any data constraints directly. 
+The user is responsible of sending to the sink data that does not violate the actual constraints of your Prometheus implementation.
+See [User responsibilities](#user-responsibilities) for more details.
 
 
 ### Ordering constraints
 
-Remote-Write specification imposes ordering constrains at multiple levels:
+Remote Write specification require multiple ordering constraints:
 
 1. **Labels** within a `PrometheusTimeSeries` record must be in lexicographical **order by `key`**.
 2. **Samples** within a `PrometheusTimeSeries` record must be in **`timestamp` order**, from older to newer.
 3. **All samples** belonging to the **same time-series** (a unique set of labels and metricName) must be written in **`timestamp` order**.
-4. Duplicate Samples belonging to the **same time-series** and with the **same timestamp** are not allowed
+4. Withing the **same time-series**, duplicate samples with the **same timestamp** are not allowed
 
-If the Prometheus implementation supports [*out-of-order time window*](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tsdb), and
-and the option is enabled, the third constraint above is relaxed. You can send out-of-order samples within the configurable
-time window.
+When the Prometheus-compatible backend implementation supports [*out-of-order time window*](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#tsdb) and the option is enabled, sample ordering constraint is relaxed. You can send out of order data withing the configured window.
 
 
 ### Format constraints
 
-The `PrometheusTimeSeries` records sent to the sink must respect the following constraints:
+The `PrometheusTimeSeries` records sent to the sink must also respect the following constraints:
 
 * **`metricName`** must be defined and non-empty. The connector translates this property into the value of the `__name__` label.
 * Label **names** must follow the regex `[a-zA-Z:_]([a-zA-Z0-9_:])`.
 * Label **names** must not begin with `__` (double underscore). These label names are reserved.
+* No duplicate Label **names** is allowed.
 * Label **values** and `metricName` may contain any UTF-8 character.
 * Label **values** cannot be empty (null or empty string).
 
-Records violating these constraints may be rejected by Prometheus.
-
+The `PrometheusTimeSeries` builder does not enforce these constraints.
 
 ### User responsibilities
 
 The user is responsible for sending to the sink records (`PrometheusTimeSeries`) respecting format and ordering 
-constraints of your Prometheus installation. The connector does not perform any validation or reordering.
+constraints required by your Prometheus implementation. 
+The connector does not perform any validation or reordering.
 
 Sample ordering by timestamp is particularly important. 
-Samples belonging to the same time-series, i.e. with the same set of Labels and metric name, must be in timestamp order.
-Data must be generated in order, and order must be retained upstream of the sink. This usually implies partitioning records by the combination 
-of all Labels and metric name.
+Samples belonging to the same time-series, i.e. with the same set of Labels and the same metric name, must be written in timestamp order.
+Source data must be generated in order. The order must also be retained before the sink. When partitioning the data, records with same set of labels and metric name must be sent to the same partition, in order to retain ordering.
+
+Malformed or out of order records written to the Remote Write endpoint are rejected and dropped by the sink. This may cause data loss.
+See 
 
 Any record violating ordering sent to the sink is dropped and may cause other records batched in the same write-request to be dropped. 
-See [Error handling](#error-handling) for more details.
+For more details, see [Connector guarantees](#connector-guarantees).
 
 
 ### Sink parallelism and keyed streams
 
-Each sink operator sub-task uses a single thread to send write requests to the Prometheus Remote-Write endpoint.
-`PrometheusTimeSeries` records are written in the order they are received by the sub-task. However, sending to 
-different sub-tasks  records belonging to the same time-series (i.e. `PrometheusTimeSeries` with identical set of labels
-and metric name) may result in out-of-order writes, rejected by Prometheus.
+Each sink operator sub-task uses a single thread to send write requests to the Remote Write endpoint, and `PrometheusTimeSeries` records 
+are written in the same order as theyare received by the sub-task. 
 
-The sink allows parallelism > 1 to scale writes. To prevent from introducing accidental out-of-order writes, the input 
-of the sink must be keyed ensuring that all records belonging to the same time-series must be handled by the same sink sub-task.
-
-You can achieve this with a `keyBy()` using `PrometheusTimeSeriesLabelsAndMetricNameKeySelector` as key selector.
+To ensure all records belonging to the same time-series (i.e. `PrometheusTimeSeries` with identical list of `Label` and `metricName`)
+are written by the same sink subtask, the stream of `PrometheusTimeSeries` must be keyed using `PrometheusTimeSeriesLabelsAndMetricNameKeySelector`.
 
 ```java
-
 DataStream<MyRecord> inputRecords;
 // ...
 KeyedStream<PrometheusTimeSeries> timeSeries = inputRecords
@@ -199,16 +201,15 @@ KeyedStream<PrometheusTimeSeries> timeSeries = inputRecords
 timeSeries.sinkTo(prometheusSink);
 ```
 
-Keying the input using the key selector prevents accidental out-of-orderness due to repartitioning before the sink operator.
-However, the application is still responsible to ensure that all samples with the same set of labels and metric name are sent 
-to the sink in order of timestamp and by the same partition.
+Using this key selector prevents accidental out-of-orderness due to repartitioning before the sink operator.
+However, the user is responsible to retain ordering to this point, by partitioning the records correctly.
 
 
 ## Error handling
 
-This paragraph covers handling of errors conditions when writing data to the Remote-Write endpoint. 
+This paragraph covers handling of errors conditions when writing data to the Remote Write endpoint. 
 
-There are three types of error conditions:
+There are four types of error conditions:
 
 1. Retryable errors due to temporary error conditions in the Remote-Write server or due to throttling: `5xx` or `429` http responses, connectivity issues.
 2. Non-retryable errors due to data violating any of the constraints, malformed data or out-of-order samples: `4xx` http responses, except `429`, `403` and `404`.
@@ -218,62 +219,55 @@ There are three types of error conditions:
 
 ### On-error behaviors
 
-The connector implements two types of behavior on error:
+When any of the above error is encountered, the connector implements one of these two behaviors:
 
-1. `FAIL`: throw an unhandled exception, cause the job to fail;
-2. `DISCARD_AND_CONTINUE`: discard the request that caused the error and continue with the next request.
+1. `FAIL`: throw an unhandled exception, the job fails
+2. `DISCARD_AND_CONTINUE`: discard the request that caused the error, and continue with the next record.
 
-When a write request is discarded by the `DISCARD_AND_CONTINUE` behavior, the following actions happen:
+When a write request is discarded on `DISCARD_AND_CONTINUE`, all the following happen:
 
-1. Log a message at `WARN` level with the cause of the error. When the error is caused by a response of the Remote-Write
-    endpoint, the log entry contains the message returned by the endpoint.
-2. Increase one connector [counters](#connector-metrics) metrics, to count the number of rejected samples and write requests.
-3. **Drop the entire write request**. Note that, due to [batching](#batching), a write request may contain multiple 
-    `PrometheusTimeSeries`.
+1. Log a message at `WARN` level with the cause of the error. When the error is caused by a response from the endpoint, the payload of the response 
+   from the endpoint is included.
+2. Increase [counters](#connector-metrics) metrics, to count the number of rejected samples and write requests.
+3. **Drop the entire write request**. Note that, due to [batching](#batching), a write request may contain multiple `PrometheusTimeSeries`.
 4. Continue with the next input record.
 
 
-{{< hint info >}}Prometheus Remote-Write does not support partial failures. 
-Due to connector [batching](#batching), a single write request may contain multiple input records (`PrometheusTimeSeries`). 
-When a write request is discarded for any reason, all records in the batch are dropped. Even if the error was caused by a single malformed record in the write request.{{< /hint >}}
+{{< hint info >}}Prometheus Remote Write does not support partial failures. 
+Due to [batching](#batching), a single write request may contain multiple input records (`PrometheusTimeSeries`). 
+If a request contains even a single offending record, the entire write request (the entire batch) must be discarded.{{< /hint >}}
 
 
 #### Retriable error responses
 
-A typical retriable error condition Prometheus throttling, with a `429, Too Many Requests` response.
+A typical retriable error condition is enpoint throttling, with a `429, Too Many Requests` response.
 
-On retriable errors, the connector will retry, using a [configurable backoff strategy](#retry-configuration) until a maximum number of retries, then fails.
+On retriable errors, the connector will retry, using a [configurable backoff strategy](#retry-configuration). 
+When the maximum number of retries is exceeded, the write request fails.
 What happens at this point depends on the `onMaxRetryExceeded` [error handling configuration](#error-handling-configuration).
 
-* `onMaxRetryExceeded` is `FAIL` (default): the job fails and restarts from checkpoint.
-* `onMaxRetryExceeded` is `DISCARD_AND_CONTINUE`: the entire write request (the batch) is dropped and the sink continue with the next record. 
+* If `onMaxRetryExceeded` is `FAIL` (default): the job fails and restarts from checkpoint.
+* If `onMaxRetryExceeded` is `DISCARD_AND_CONTINUE`: the entire write request is dropped and the sink continues with the next record. 
 
 
 #### Non retriable error responses
 
-A typical non-retriable condition is due to malformed or out of order data rejected by Prometheus with a `400, Bad Request` response.
+A typical non-retriable condition is due to malformed or out of order samples that are rejected by Prometheus with a `400, Bad Request` response.
 
-When such an error response is received, the connector applies the `DISCARD_AND_CONTINUE` behavior.
-This behavior is currently not configurable.
-
-{{< hint info >}}Due to discarding records on non-retriable errors make the sink **at most once**.
-This is not a limitation of the sink implementation, but rather the behavior expected by Prometheus.
-Causing the job to fail on errors caused by malformed data, would restart the job from checkpoint and cause the error again, putting the application in an endless loop.{{< /hint >}}
+When such an error is received, the connector applies the `DISCARD_AND_CONTINUE` behavior. This behavior is currently not configurable.
 
 #### Fatal error responses
 
-`403, Forbidden` responses, caused by incorrect or missing authentication, and `404, Not Found` responses, caused by incorrect endpoint URL, are always considered fatal (behavior is always `FAIL`, not configurable).
+`403, Forbidden` responses, caused by incorrect or missing authentication, and `404, Not Found` responses, caused by incorrect endpoint URL, are always considered fatal. Behavior is always `FAIL` and not configurable.
 
 #### Other I/O errors
 
-Any I/O error while connecting to the endpoint is also fatal (behavior is always `FAIL`, not configurable).
+Any I/O error that happens in the http client is also fatal (behavior is always `FAIL`, not configurable).
 
 
 ### Error handling configuration
 
-The error handling behavor is partly configurable. 
-
-You can change the error handling behavior when building the instance of the sink.
+The error handling behavor is partly configurable. You can configure the behavior when building the instance of the sink.
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
@@ -286,8 +280,8 @@ PrometheusSink sink = PrometheusSink.builder()
         .build();
 ```
 
-At the moment, the only supported configuration is when the maximum number of retries is exceedeed (`onMaxRetryExceeded`), after 
-a [retriable error](#retriable-error-responses). The default behavior is `FAIL`.
+At the moment, the only supported configuration, `onMaxRetryExceeded`, controls the behavior when the maximum nunmber of retries,
+after a [retriable error](#retriable-error-responses), is exceeded. The default behavior is `FAIL`.
 
 The configuration also allows setting the behavior on Prometheus non-retriable error (`onPrometheusNonRetriableError`), but the only 
 allowed value at the moment is `DISCARD_AND_CONTINUE`. 
@@ -295,13 +289,13 @@ allowed value at the moment is `DISCARD_AND_CONTINUE`.
 
 ### Retry configuration
 
-When a retriable error condition is encoutered, for example a `5xx` or `429` response, the sink retries with an exponential backoff strategy.
+When a [retriable error condition](#retriable-error-responses) is encoutered, the sink retries with an exponential backoff strategy.
 
-You can control the retry strategy with the following configurations:
+The retry strategy can be configured with the following parameters:
 
-* `initialRetryDelayMS`: (default `30` millis) Initial retry delay. Retry delay doubles on every subsequent retry up to the maximum retry delay.
+* `initialRetryDelayMS`: (default `30` millis) Initial retry delay. The retry delay doubles on every subsequent retry, up to the maximum retry delay.
 * `maxRetryDelayMS`: (default `5000` millis) Maximum retry delay. When this delay is reached, every subsequent retry has the same delay. Must be bigger than `InitialRetryDelayMS`
-* `maxRetryCount`: (default `100`) Maximum number of retries for a single write request. To (practically) retry forever set max retries to `Integer.MAX_VALUE`.
+* `maxRetryCount`: (default `100`) Maximum number of retries for a single write request. Set max retries to `Integer.MAX_VALUE` if you want to (practically) retry forever.
 
 When `maxRetryCount` is exceeded, the connector stops retrying. What happens at this point depends on the `onMaxRetryExceeded` 
 [error handling behavior](#error-handling-configuration).
@@ -321,29 +315,30 @@ PrometheusSink sink = PrometheusSink.builder()
         .build();
 ```
 
+
 ## Batching
 
-To optimize write throughput, the sink batches writes. Multiple `PrometheusTimeSeries` are bathed in a single write request
-to the Remote-Write endpoint.
+To optimize write throughput, the sink batches writes. Multiple `PrometheusTimeSeries` are batched in a single write request
+to the Remote Write endpoint.
 
-Batching is based on the number of **samples** (not bytes) and on max buffering time.
+Batching is based on the number of samples per request, and a max buffering time.
 
-The connector starts with writing single `PrometheusTimeSeries` per write-request. If writes succeeds, the batch size is 
-increased up to a configurable limit of samples per write-request. The actual number of `PrometheusTimeSeries` per write 
-request varies, because a `PrometheusTimeSeries` may contain a variable number of samples.
+The connector starts with writing a single `PrometheusTimeSeries` per write request. If the write succeeds, the batch size is 
+increased up to a configurable limit of samples per request. The actual number of `PrometheusTimeSeries` per 
+request may vary, because `PrometheusTimeSeries` may contain a variable number of samples.
 
 Buffered `PrometheusTimeSeries` are stored in Flink state, and are not lost on application restart.
 
-`PrometheusTimeSeries` order of PrometheusTimeSeries` is retained, per sub-task. Each sub-task has at most one in-flight 
-write request. A write request is retried until it completely succeeds or fails.
-
-You can control batching with the following parameters:
+Batching can be controlled using the following parameters:
 
 * `maxBatchSizeInSamples`: (default: `500`) max number of samples in a write request.
-* `maxTimeInBufferMS`: (default: `5000` millis) Max time `PrometheusTimeSeries` are buffered before sending the write-request.
+* `maxTimeInBufferMS`: (default: `5000` millis) Max time inpout `PrometheusTimeSeries` are buffered before emitting the write request.
 * `maxRecordSizeInSamples`: (default: `500`) max number of samples in a single `PrometheusTimeSeries`. It must be less or equal `MaxBatchSizeInSamples`.
 
-You can configure batching when building the sink.
+{{< hint warn >}}If a record containing more samples than `maxRecordSizeInSamples` is encountered, the sink throws and exception causing the job to fail
+and restart from checkpoint, putting the job in an endless loop.{{< /hint >}}
+
+You can configure batching when building the sink:
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
@@ -353,25 +348,23 @@ PrometheusSink sink = PrometheusSink.builder()
         .build();
 ```
 
-{{< hint info >}}
-Larger batches improve write performance but also increases the number of record lost when a write request is rejected, due to `DISCARD_AND_CONTINUE`
-behavior.
-Reduging `maxBatchSizeInSamples` minimize data loss in this cases, but also heavly reduce the throughput that Prometheus can injest.
-The default `maxBatchSizeInSamples` of 500 maximizes the ingestion throughput.{{< /hint >}}
+Larger batches improve write performance but also increase the number of record potentially lost when a write request 
+is rejected, due to `DISCARD_AND_CONTINUE` behavior.
+Reduging `maxBatchSizeInSamples` minimize data loss in this case, but may heavly reduce the throughput that Prometheus can injest.
+The default `maxBatchSizeInSamples` of 500 maximizes the ingestion throughput.
 
-{{< hint warn >}}If any record containing more samples than `maxRecordSizeInSamples`, the sink with throw and exception and the job 
-will fail and restart continuously.{{< /hint >}}
+
 
 ## Request Signer
 
-Remote-Write specification [does not specify any authentication scheme](https://prometheus.io/docs/specs/remote_write_spec/#out-of-scope).
-Any authentication is delegated to the specific Prometheus implementation.
+Remote Write specification [does not specify any authentication scheme](https://prometheus.io/docs/specs/remote_write_spec/#out-of-scope).
+Authentication is delegated to the specific Prometheus-compatible backend implementation.
 
-The connector allows to specify a request signer. The signer can be used to add HTTP headers to the requests. These headers can 
-be based on the request body or any of the existing headers.
-A signer can be used to add to the http requests custom authorization tokens or signature tokens.
+The connector allows to specify a request signer that can add headers to the http request. These headers can be based on the request 
+body or any of the existing headers. This allows to implement authentication schemes that requires passing authentication or signature 
+tokens in headers.
 
-You can implement your own request signer implementing the `PrometheusRequestSigner` interface. 
+A request signer must implement the `PrometheusRequestSigner` interface. 
 
 ```java
 public interface PrometheusRequestSigner extends Serializable {
@@ -381,7 +374,7 @@ public interface PrometheusRequestSigner extends Serializable {
 
 Refer to the JavaDoc or the source code for more details.
 
-You can add a request signer when building the sink:
+A request signer can be added to the sink in the builder:
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
@@ -392,16 +385,18 @@ PrometheusSink sink = PrometheusSink.builder()
 
 ### Amazon Managed Prometheus request signer
 
-An implementation of `PrometheusRequestSigner` that supports [Amazon Managed Prometheus](https://aws.amazon.com/prometheus/) (AMP)
+An implementation of `PrometheusRequestSigner` supporting [Amazon Managed Prometheus](https://aws.amazon.com/prometheus/) (AMP)
 is provided.
 
-To use the AMP request signer, add this additional dependency to the Maven project:
+An additional dependency is required to use the AMP request signer:
 
 {{< connector_artifact flink-connector-prometheus prometheus-request-signer-amp >}}
 
+
 The AMP signer retrieves AWS credentials using 
-[`DefaultCredentialsProvider`](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html)
-and uses the credentials to sign every request to the Remote-Write endpoint.
+[`DefaultCredentialsProvider`](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html).
+Credentials are retrieved and used to sign every request to the endpoint.
+
 
 You can add the AMP request signer to the sink:
 
@@ -414,7 +409,7 @@ PrometheusSink sink = PrometheusSink.builder()
 
 ## HTTP client configuration
 
-You can configure the HTTP client that sends write requests to the Remote-Write endpoint.
+You can configure the HTTP client that sends write requests to the Remote Write endpoint.
 
 * `socketTimeoutMs`: (default: `5000` millis) HTTP client socket timeout
 * `httpUserAgent`: (default: `Flink-Prometheus`) User-Agent header
@@ -429,8 +424,7 @@ PrometheusSink sink = PrometheusSink.builder()
 
 ## Connector metrics
 
-The connector exposes custom metrics, counting data successfully written to the Remote-Write endpoint, and also data dropped
-due to [error handling configuration](#error-handling-configuration)  set to `DISCARD_AND_CONTINUE`.
+The connector exposes custom metrics, counting data successfully written to the endpoint, and data dropped due to `DISCARD_AND_CONTINUE`.
 
 
 | Metric name                     | Description                                                                                                |
@@ -438,7 +432,7 @@ due to [error handling configuration](#error-handling-configuration)  set to `DI
 | `numSamplesOut`                 | Count of **samples** successfully written to Prometheus                                                    |
 | `numWriteRequestsOut`           | Count of **samples** successfully written to Prometheus                                                    |
 | `numWriteRequestsRetries`       | Count of **write requests** reties, due to retryable errors (e.g. throttling)                              |
-| `numSamplesDropped`             | Count of  **samples** that have been dropped (data loss!) due to any `DISCARD_AND_CONTINUE` error handling |
+| `numSamplesDropped`             | Count of  **samples** that have been dropped (data loss!) due to `DISCARD_AND_CONTINUE`                    |
 | `numSamplesNonRetriableDropped` | Count of **samples** that have been dropped (data loss!) due to `onPrometheusNonRetriableError` set to `DISCARD_AND_CONTINUE` (default) |
 | `numSamplesRetryLimitDropped`   | Count of **samples** that have been dropped (data loss!) due to `onMaxRetryExceeded` set to `DISCARD_AND_CONTINUE`, when the retry limit was exceeded |
 | `numWriteRequestsPermanentlyFailed` | Count of **write requests** permanently failed, due to any reasons |
@@ -448,7 +442,7 @@ due to [error handling configuration](#error-handling-configuration)  set to `DI
 of AsyncSink this connector is based on. Use `numSamplesOut` and `numWriteRequestsOut` to monitor the actual output of 
 the sink.{{< /hint >}}
 
-The metric group name is "Prometheus" by default. It can be configured.
+The metric group name is "Prometheus" by default. It can be changed:
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
@@ -457,29 +451,29 @@ PrometheusSink sink = PrometheusSink.builder()
         .build();
 ```
 
+## Connector guarantees
+
+The connector provides **at-most-once** guarantees. Data loss can happen, in particular if input data is malformed or out of order.
+
+Data may be lost due to the `DISCARD_AND_CONTINUE` [on-error behaviour](#on-error-behaviors). This behavior may optionally be enabled 
+when the maximum number of retries is exceeded, but is always enabled when non-retriable error conditions are encountered.
+
+This behavior is due to the design of Prometheus Remote Write interface, that does not allow out-of-order writes in the same time-series. 
+To prevent from putting the job in an endless loop of fail and restart from checkpoint, when out of order data is encontered, is to 
+discard and continue. Out of order writes also happen when the job restart from checkpoint. Without discard and continue the sink
+would not allow the job to recover from checkpoint at all.
+
+At the same time, Prometheus imposes per time-series ordering by timestamp. The sink guarantees the order is retained per partition.
+Key-by using `PrometheusTimeSeriesLabelsAndMetricNameKeySelector` guarantees that the input is partitioned by time-series, and
+no accidental reordering happens during the write. The user is responsible to partition data before the sink to ensure order is retained.
+
+
 ## Example application
 
 You can find a complete application demonstrating the configuration and usage of this sink in the tests of the connector.
 
 Check out the source of `org.apache.flink.connector.prometheus.sink.examples.DataStreamExample`.
 
-This is not a real test. This class contains a full application that generates random data internally and writes to Prometheus.
-
-## Connector guarantees
-
-The connector provides **at-most-once**. Data loss can happen, in particular if input data is malformed or out of order.
-
-Data may be lost due to the `DISCARD_AND_CONTINUE` [on-error behaviour](#on-error-behaviors). This behavior may optionally be enabled 
-when the maximum number of retries is exceeded, but is always enabled when a non-retriable error condition is encountered.
-
-This is not a limitation of this sink, but it's due to the design of Prometheus remote-write interfaces, strictly 
-not allowing out-of-order writes in the same time-series. Failing when a write is rejected by Prometheus would only put the job in 
-an endless loop, failing, restarting from checkpoint, and failing again when the write is inevitably rejected.
-
-At the same time, Prometheus imposes per time-series ordering by timestamp. The sink guarantees the order is retained per partition.
-Key by using `PrometheusTimeSeriesLabelsAndMetricNameKeySelector` before the sink guarantees input is partitioned by time-series, and
-no accidental reordering happens during the write. It is user's responsibility to retain order upstream of the sink. Any out of order 
-record is rejected by Prometheus
-
+This class contains a full application that generates random data internally and writes to Prometheus.
 
 {{< top >}}
