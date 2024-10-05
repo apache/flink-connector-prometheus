@@ -198,7 +198,7 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
      * {@link org.apache.flink.connector.prometheus.sink.http.RethrowingIOSessionListener}.
      */
     private void logErrorAndThrow(PrometheusSinkWriteException ex) {
-        LOG.error("Error condition detected but the http response callback (on complete)", ex);
+        LOG.error("Error condition detected by the http response callback (on complete)", ex);
         throw ex;
     }
 }
