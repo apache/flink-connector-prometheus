@@ -40,6 +40,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier.classify;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRIABLE_ERROR;
+
 /**
  * Retry strategy for the http client.
  *
@@ -103,9 +106,7 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
 
     @Override
     public boolean retryRequest(HttpResponse httpResponse, int execCount, HttpContext httpContext) {
-        boolean retry =
-                (execCount <= maxRetryCount)
-                        && RemoteWriteResponseClassifier.isRetriableErrorResponse(httpResponse);
+        boolean retry = (execCount <= maxRetryCount) && (classify(httpResponse) == RETRIABLE_ERROR);
         LOG.debug(
                 "{} retry on response {} {}, at execution {}",
                 (retry) ? "DO" : "DO NOT",
