@@ -25,6 +25,7 @@ import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.connector.prometheus.sink.PrometheusSink;
 import org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration;
+import org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.OnErrorBehavior;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeries;
 import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeriesLabelsAndMetricNameKeySelector;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
@@ -134,15 +135,8 @@ public class DataStreamExample {
                         .setErrorHandlingBehaviourConfiguration(
                                 PrometheusSinkConfiguration
                                         .SinkWriterErrorHandlingBehaviorConfiguration.builder()
-                                        .onPrometheusNonRetriableError(
-                                                PrometheusSinkConfiguration.OnErrorBehavior
-                                                        .FAIL) // Optional, default FAIL
                                         .onMaxRetryExceeded(
-                                                PrometheusSinkConfiguration.OnErrorBehavior
-                                                        .FAIL) // Optional, default FAIL
-                                        .onHttpClientIOFail(
-                                                PrometheusSinkConfiguration.OnErrorBehavior
-                                                        .FAIL) // Optional, default FAIL
+                                                OnErrorBehavior.FAIL) // Optional, default FAIL
                                         .build())
                         .setMetricGroupName("Prometheus") // Optional, default "Prometheus"
                         .build();

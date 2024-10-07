@@ -80,7 +80,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 maxBatchSizeInSamples > 1, "Max batch size (in samples) must be positive");
         Preconditions.checkArgument(
                 maxRecordSizeInSamples <= maxBatchSizeInSamples,
-                "Maz record size (in samples) must be <= Max batch size");
+                "Max record size (in samples) must be <= Max batch size");
         Preconditions.checkArgument(maxInFlightRequests == 1, "Max in-flight requests must be 1");
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(prometheusRemoteWriteUrl),

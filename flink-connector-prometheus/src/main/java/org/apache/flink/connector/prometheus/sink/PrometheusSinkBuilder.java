@@ -102,7 +102,7 @@ public class PrometheusSinkBuilder
                         + "\n\t\tmaxTimeInBufferMs={}\n\t\tmaxInFlightRequests={}\n\t\tmaxBufferedRequests={}"
                         + "\n\t\tRetryConfiguration: initialRetryDelayMs={}, maxRetryDelayMs={}, maxRetryCount={}"
                         + "\n\t\tsocketTimeoutMs={}\n\t\thttpUserAgent={}"
-                        + "\n\t\tErrorHandlingBehaviour: onMaxRetryExceeded={}, onHttpClientIOFailure={}, onNonRetriableError={}",
+                        + "\n\t\tErrorHandlingBehaviour: onMaxRetryExceeded={}, onNonRetriableError={}",
                 actualMaxBatchSizeInSamples,
                 actualMaxRecordSizeInSamples,
                 actualMaxTimeInBufferMS,
@@ -114,7 +114,6 @@ public class PrometheusSinkBuilder
                 socketTimeoutMs,
                 actualHttpUserAgent,
                 actualErrorHandlingBehaviorConfig.getOnMaxRetryExceeded(),
-                actualErrorHandlingBehaviorConfig.getOnHttpClientIOFail(),
                 actualErrorHandlingBehaviorConfig.getOnPrometheusNonRetriableError());
 
         return new PrometheusSink(

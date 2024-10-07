@@ -21,21 +21,37 @@ import org.apache.flink.annotation.Internal;
 
 import org.apache.hc.core5.http.HttpResponse;
 
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.FATAL_ERROR;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.NON_RETRIABLE_ERROR;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRIABLE_ERROR;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.SUCCESS;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.UNHANDLED;
+
 /** Classify http responses based on the status code. */
 @Internal
 public class RemoteWriteResponseClassifier {
-    public static boolean isRetriableErrorResponse(HttpResponse response) {
-        int statusCode = response.getCode();
-        return statusCode >= 500 | statusCode == 429;
-    }
 
-    public static boolean isNonRetriableErrorResponse(HttpResponse response) {
+    public static RemoteWriteResponseType classify(HttpResponse response) {
         int statusCode = response.getCode();
-        return (statusCode >= 400 && statusCode < 500) && statusCode != 429;
-    }
-
-    public static boolean isSuccessResponse(HttpResponse response) {
-        int statusCode = response.getCode();
-        return (statusCode >= 200 && statusCode < 300);
+        if (statusCode >= 200 && statusCode < 300) {
+            // 2xx: success
+            return SUCCESS;
+        } else if (statusCode == 429) {
+            // 429, Too Many Requests: throttling
+            return RETRIABLE_ERROR;
+        } else if (statusCode == 403 || statusCode == 404) {
+            // 403, Forbidden: authentication error
+            // 404, Not Found: wrong endpoint URL path
+            return FATAL_ERROR;
+        } else if (statusCode >= 400 && statusCode < 500) {
+            // 4xx (except 403, 404, 429): wrong request/bad data
+            return NON_RETRIABLE_ERROR;
+        } else if (statusCode >= 500) {
+            // 5xx: internal errors, recoverable
+            return RETRIABLE_ERROR;
+        } else {
+            // Other status code are unhandled
+            return UNHANDLED;
+        }
     }
 }

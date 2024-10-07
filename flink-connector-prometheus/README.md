@@ -130,7 +130,6 @@ PrometheusSink sink = PrometheusSink.builder()
                 .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE) 
                 // Default is FAIL for other error types
                 .onMaxRetryExceeded(OnErrorBehavior.FAIL)
-                .onHttpClientIOFail(OnErrorBehavior.FAIL)
                 .build())
         .setMetricGroupName("Prometheus")           // Customizable metric-group suffix (default: "Prometheus")
         .build();
@@ -182,11 +181,10 @@ The possible behaviors are:
 * `FAIL`: throw a `PrometheusSinkWriteException`, causing the job to fail.
 * `DISCARD_AND_CONTINUE`: log the reason of the error, discard the offending request, and continue.
 
-There are 3 error conditions:
+There are two error conditions:
 
 1. Prometheus returns a non-retriable error response (i.e. any `4xx` status code except `429`). Default: `DISCARD_AND_CONTINUE`.
 2. Prometheus returns a retriable error response (i.e. `5xx` or `429`) but the max retry limit is exceeded. Default: `FAIL`.
-3. The http client fails to complete the request, for an I/O error. Default: `FAIL`.
 
 The error handling behaviors can be configured when creating the instance of the sink, as shown in this snipped:
 
@@ -196,7 +194,6 @@ PrometheusSink sink = PrometheusSink.builder()
         .setErrorHandlingBehaviourConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
                 .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
                 .onMaxRetryExceeded(OnErrorBehavior.DISCARD_AND_CONTINUE)
-                .onHttpClientIOFail(OnErrorBehavior.DISCARD_AND_CONTINUE)
                 .build())
         .build();
 ```
@@ -217,6 +214,14 @@ Prometheus does not return sufficient information to automatically handle partia
 > The behavior cannot be set to `FAIL`. Failing on non-retriable error would make impossible for the application to
 > restart from checkpoint. The reason is that restarting from checkpoint cause some duplicates, that are rejected by
 > Prometheus as out of order, causing in turn another non-retriable error, in an endless loop.
+
+
+### Fatal errors
+
+Remote-write endpoint responses 403 (Forbidden) and 404 (Not found) are always considered fatal, regardless the error 
+handling configuration.
+
+Any I/O error during the communication with the endpoint is also fatal.
 
 ### Metrics
 

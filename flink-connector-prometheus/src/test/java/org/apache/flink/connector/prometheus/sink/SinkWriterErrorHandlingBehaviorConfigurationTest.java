@@ -38,13 +38,6 @@ class SinkWriterErrorHandlingBehaviorConfigurationTest {
     }
 
     @Test
-    public void shouldDefaultToFailOnHttpClientIOFail() {
-        assertEquals(
-                PrometheusSinkConfiguration.OnErrorBehavior.FAIL,
-                DEFAULT_CONFIG.getOnHttpClientIOFail());
-    }
-
-    @Test
     public void shouldDefaultToDiscardAndContinueOnPrometheusNonRetriableError() {
         assertEquals(
                 PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE,

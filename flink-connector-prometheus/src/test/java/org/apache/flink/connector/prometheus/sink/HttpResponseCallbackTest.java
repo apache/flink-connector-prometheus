@@ -17,6 +17,7 @@
 
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.errorhandling.PrometheusSinkWriteException;
 import org.apache.flink.connector.prometheus.sink.metrics.VerifybleSinkMetricsCallback;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
@@ -30,9 +31,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR;
-import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR;
-import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration.ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,14 +39,12 @@ class HttpResponseCallbackTest {
     private static final int TIME_SERIES_COUNT = 17;
     private static final long SAMPLE_COUNT = 42;
 
-    private InspectableMetricGroup metricGroup;
     private VerifybleSinkMetricsCallback metricsCallback;
     private List<Types.TimeSeries> reQueuedResults;
     Consumer<List<Types.TimeSeries>> requestResults;
 
     @BeforeEach
     void setUp() {
-        metricGroup = new InspectableMetricGroup();
         metricsCallback = new VerifybleSinkMetricsCallback();
         reQueuedResults = new ArrayList<>();
         requestResults = HttpResponseCallbackTestUtils.getRequestResult(reQueuedResults);
@@ -56,22 +52,12 @@ class HttpResponseCallbackTest {
 
     @Test
     void shouldIncSuccessCountersOn200OK() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onMaxRetryExceeded(ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR)
-                                .onHttpClientIOFail(ON_HTTP_CLIENT_IO_FAIL_DEFAULT_BEHAVIOR)
-                                .onPrometheusNonRetriableError(
-                                        ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR)
-                                .build();
-
         HttpResponseCallback callback =
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
-                        errorHandlingBehavior,
+                        SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
                         requestResults);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_OK);
@@ -86,15 +72,12 @@ class HttpResponseCallbackTest {
     }
 
     @Test
-    void shouldIncFailCountersOnCompletedWith404WhenDiscardAndContinueOnNonRetriableIsSelected() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onPrometheusNonRetriableError(
-                                        PrometheusSinkConfiguration.OnErrorBehavior
-                                                .DISCARD_AND_CONTINUE)
-                                .build();
+    void shouldIncFailCountersOnCompletedWith400WhenDiscardAndContinueOnNonRetriableIsSelected() {
+        SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
+                SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                        .onPrometheusNonRetriableError(
+                                PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE)
+                        .build();
 
         HttpResponseCallback callback =
                 new HttpResponseCallback(
@@ -104,7 +87,7 @@ class HttpResponseCallbackTest {
                         errorHandlingBehavior,
                         requestResults);
 
-        SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_NOT_FOUND);
+        SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_BAD_REQUEST);
 
         callback.completed(httpResponse);
 
@@ -118,13 +101,10 @@ class HttpResponseCallbackTest {
 
     @Test
     void shouldThrowExceptionsOnCompletedWith500WhenFailOnRetryExceededIsSelected() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onMaxRetryExceeded(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
-                                .build();
+        SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
+                SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                        .onMaxRetryExceeded(PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                        .build();
 
         HttpResponseCallback callback =
                 new HttpResponseCallback(
@@ -145,14 +125,11 @@ class HttpResponseCallbackTest {
 
     @Test
     void shouldIncFailCountersOnCompletedWith500WhenDiscardAndContinueOnRetryExceededIsSelected() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onMaxRetryExceeded(
-                                        PrometheusSinkConfiguration.OnErrorBehavior
-                                                .DISCARD_AND_CONTINUE)
-                                .build();
+        SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
+                SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                        .onMaxRetryExceeded(
+                                PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE)
+                        .build();
 
         HttpResponseCallback callback =
                 new HttpResponseCallback(
@@ -176,18 +153,12 @@ class HttpResponseCallbackTest {
 
     @Test
     void shouldThrowExceptionOnCompletedWith100() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .build();
-
         HttpResponseCallback callback =
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
-                        errorHandlingBehavior,
+                        SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
                         requestResults);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(100);
@@ -200,69 +171,28 @@ class HttpResponseCallbackTest {
     }
 
     @Test
-    void shouldThrowExceptionOnFailedWhenFailOnHttpIOFailureIsSelected() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onHttpClientIOFail(
-                                        PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
-                                .build();
-
+    void shouldThrowExceptionOnCompletedWith403() {
         HttpResponseCallback callback =
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
-                        errorHandlingBehavior,
+                        SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
                         requestResults);
 
-        Exception ex = new UnsupportedOperationException("Dummy exceptions");
+        SimpleHttpResponse httpResponse = new SimpleHttpResponse(403);
 
         assertThrows(
                 PrometheusSinkWriteException.class,
                 () -> {
-                    callback.failed(ex);
+                    callback.completed(httpResponse);
                 });
     }
 
     @Test
-    void shouldIncFailCountersOnFailedWhenDiscardAndContinueOnHttpIOFailureIsSelected() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .onHttpClientIOFail(
-                                        PrometheusSinkConfiguration.OnErrorBehavior
-                                                .DISCARD_AND_CONTINUE)
-                                .build();
-
-        HttpResponseCallback callback =
-                new HttpResponseCallback(
-                        TIME_SERIES_COUNT,
-                        SAMPLE_COUNT,
-                        metricsCallback,
-                        errorHandlingBehavior,
-                        requestResults);
-
-        Exception ex = new UnsupportedOperationException("Dummy exceptions");
-
-        callback.failed(ex);
-
-        // Verify only the expected metric callback was called, once
-        assertTrue(metricsCallback.verifyOnlyFailedWriteRequestsForHttpClientIoFailWasCalledOnce());
-
-        // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
-    }
-
-    @Test
     void shouldThrowExceptionOnCancelled() {
-        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                errorHandlingBehavior =
-                        PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
-                                .builder()
-                                .build();
+        SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
+                SinkWriterErrorHandlingBehaviorConfiguration.builder().build();
 
         HttpResponseCallback callback =
                 new HttpResponseCallback(
