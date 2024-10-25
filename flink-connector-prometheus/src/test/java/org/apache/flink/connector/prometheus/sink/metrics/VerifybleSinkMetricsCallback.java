@@ -27,7 +27,7 @@ import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
  */
 public class VerifybleSinkMetricsCallback extends SinkMetricsCallback {
     private int successfulWriteRequestsCount = 0;
-    private int failedWriteRequestForNonRetriableErrorCount = 0;
+    private int failedWriteRequestForNonRetryableErrorCount = 0;
     private int failedWriteRequestForRetryLimitExceededCount = 0;
     private int failedWriteRequestForHttpClientIoFailCount = 0;
     private int writeRequestsRetryCount = 0;
@@ -44,8 +44,8 @@ public class VerifybleSinkMetricsCallback extends SinkMetricsCallback {
     }
 
     @Override
-    public void onFailedWriteRequestForNonRetriableError(long sampleCount) {
-        failedWriteRequestForNonRetriableErrorCount++;
+    public void onFailedWriteRequestForNonRetryableError(long sampleCount) {
+        failedWriteRequestForNonRetryableErrorCount++;
     }
 
     @Override
@@ -65,15 +65,15 @@ public class VerifybleSinkMetricsCallback extends SinkMetricsCallback {
 
     public boolean verifyOnlySuccessfulWriteRequestsWasCalledOnce() {
         return successfulWriteRequestsCount == 1
-                && failedWriteRequestForNonRetriableErrorCount == 0
+                && failedWriteRequestForNonRetryableErrorCount == 0
                 && failedWriteRequestForRetryLimitExceededCount == 0
                 && failedWriteRequestForHttpClientIoFailCount == 0
                 && writeRequestsRetryCount == 0;
     }
 
-    public boolean verifyOnlyFailedWriteRequestsForNonRetriableErrorWasCalledOnce() {
+    public boolean verifyOnlyFailedWriteRequestsForNonRetryableErrorWasCalledOnce() {
         return successfulWriteRequestsCount == 0
-                && failedWriteRequestForNonRetriableErrorCount == 1
+                && failedWriteRequestForNonRetryableErrorCount == 1
                 && failedWriteRequestForRetryLimitExceededCount == 0
                 && failedWriteRequestForHttpClientIoFailCount == 0
                 && writeRequestsRetryCount == 0;
@@ -81,7 +81,7 @@ public class VerifybleSinkMetricsCallback extends SinkMetricsCallback {
 
     public boolean verifyOnlyFailedWriteRequestsForRetryLimitExceededWasCalledOnce() {
         return successfulWriteRequestsCount == 0
-                && failedWriteRequestForNonRetriableErrorCount == 0
+                && failedWriteRequestForNonRetryableErrorCount == 0
                 && failedWriteRequestForRetryLimitExceededCount == 1
                 && failedWriteRequestForHttpClientIoFailCount == 0
                 && writeRequestsRetryCount == 0;
@@ -89,7 +89,7 @@ public class VerifybleSinkMetricsCallback extends SinkMetricsCallback {
 
     public boolean verifyOnlyFailedWriteRequestsForHttpClientIoFailWasCalledOnce() {
         return successfulWriteRequestsCount == 0
-                && failedWriteRequestForNonRetriableErrorCount == 0
+                && failedWriteRequestForNonRetryableErrorCount == 0
                 && failedWriteRequestForRetryLimitExceededCount == 0
                 && failedWriteRequestForHttpClientIoFailCount == 1
                 && writeRequestsRetryCount == 0;
@@ -97,7 +97,7 @@ public class VerifybleSinkMetricsCallback extends SinkMetricsCallback {
 
     public boolean verifyOnlyWriteRequestsRetryWasCalled(int times) {
         return successfulWriteRequestsCount == 0
-                && failedWriteRequestForNonRetriableErrorCount == 0
+                && failedWriteRequestForNonRetryableErrorCount == 0
                 && failedWriteRequestForRetryLimitExceededCount == 0
                 && failedWriteRequestForHttpClientIoFailCount == 0
                 && writeRequestsRetryCount == times;

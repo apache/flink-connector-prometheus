@@ -78,7 +78,7 @@ For efficiency, the sink **does not do any validation or reordering** of the inp
 of the application ensuring that input is well-formed.
 
 Any malformed data will be rejected on write to Prometheus. Depending on
-the [error handling behaviours](#error-handling-behavior)
+the [error handling behaviors](#error-handling-behavior)
 configured, the sink will throw an exception stopping the job (default), or drop the entire write-request, log the fact,
 and continue.
 
@@ -98,13 +98,13 @@ retain sample ordering, and uses and exponential backoff.
 The exponential backoff starts with an initial delay (default 30 ms) and increases it exponentially up to a max retry
 delay (default 5 sec). It continues retrying until the max number of retries is reached (default reties forever).
 
-On non-retriable error response (4xx, except 429, non retryable exceptions) the sink will always discard and continue 
+On non-retryable error response (4xx, except 429, non retryable exceptions) the sink will always discard and continue 
 (`DISCARD_AND_CONTINUE` behavior; see details below).
 
 On reaching the retry limit, depending
-on the configured [error handling behaviour](#error-handling-behavior) for "Max retries exceeded", the sink will either
-throw an exception (`FAIL`, default behaviour), or **discard the entire write-request**, log a warning and continue. See
-[error handling behaviour](#error-handling-behavior), below, for further details.
+on the configured [error handling behavior](#error-handling-behavior) for "Max retries exceeded", the sink will either
+throw an exception (`FAIL`, default behavior), or **discard the entire write-request**, log a warning and continue. See
+[error handling behavior](#error-handling-behavior), below, for further details.
 
 ### Initializing the sink
 
@@ -124,10 +124,10 @@ PrometheusSink sink = PrometheusSink.builder()
         .setSocketTimeoutMs(5000)                   // Http client socket timeout (default: 5000 ms)
         .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)  // Remote-write URL
         .setRequestSigner(new AmazonManagedPrometheusWriteRequestSigner(prometheusRemoteWriteUrl, prometheusRegion)) // Optional request signed (AMP request signer in this example)
-        .setErrorHandlingBehaviourConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
+        .setErrorHandlingBehaviorConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
                 // Error handling behaviors. See description below, for more details.
-                // Default is DISCARD_AND_CONTINUE for non-retriable errors
-                .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE) 
+                // Default is DISCARD_AND_CONTINUE for non-retryable errors
+                .onPrometheusNonRetryableError(OnErrorBehavior.DISCARD_AND_CONTINUE) 
                 // Default is FAIL for other error types
                 .onMaxRetryExceeded(OnErrorBehavior.FAIL)
                 .build())
@@ -151,7 +151,7 @@ The sink supports optional request-signing for authentication, implementing the
 [`PrometheusRequestSigner`](./src/main/java/org/apache/flink/connector/prometheus/sink/PrometheusRequestSigner.java)
 interface.
 
-### Retriable errors
+### Retryable errors
 
 The sink complies with Prometheus remote-write specs not retrying any request that return status codes `4xx`,
 except `429`,
@@ -172,7 +172,7 @@ PrometheusSink sink = PrometheusSink.builder()
 
 ### Error handling behavior
 
-The behaviour of the sink, when an unrecoverable error happens while writing to Prometheus remote-write endpoint, is
+The behavior of the sink, when an unrecoverable error happens while writing to Prometheus remote-write endpoint, is
 configurable.
 
 
@@ -183,16 +183,16 @@ The possible behaviors are:
 
 There are two error conditions:
 
-1. Prometheus returns a non-retriable error response (i.e. any `4xx` status code except `429`). Default: `DISCARD_AND_CONTINUE`.
-2. Prometheus returns a retriable error response (i.e. `5xx` or `429`) but the max retry limit is exceeded. Default: `FAIL`.
+1. Prometheus returns a non-retryable error response (i.e. any `4xx` status code except `429`). Default: `DISCARD_AND_CONTINUE`.
+2. Prometheus returns a retryable error response (i.e. `5xx` or `429`) but the max retry limit is exceeded. Default: `FAIL`.
 
 The error handling behaviors can be configured when creating the instance of the sink, as shown in this snipped:
 
 ```java
 PrometheusSink sink = PrometheusSink.builder()
         // ...    
-        .setErrorHandlingBehaviourConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
-                .onPrometheusNonRetriableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
+        .setErrorHandlingBehaviorConfiguration(SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                .onPrometheusNonRetryableError(OnErrorBehavior.DISCARD_AND_CONTINUE)
                 .onMaxRetryExceeded(OnErrorBehavior.DISCARD_AND_CONTINUE)
                 .build())
         .build();
@@ -209,11 +209,11 @@ Note that there is no partial-failure condition: the entire write-request is dis
 request are causing the problem.
 Prometheus does not return sufficient information to automatically handle partial requests.
 
-> In the current connector version, `DISCARD_AND_CONTINUE` is the only supported behavior for non-retriable error.
+> In the current connector version, `DISCARD_AND_CONTINUE` is the only supported behavior for non-retryable error.
 > 
-> The behavior cannot be set to `FAIL`. Failing on non-retriable error would make impossible for the application to
+> The behavior cannot be set to `FAIL`. Failing on non-retryable error would make impossible for the application to
 > restart from checkpoint. The reason is that restarting from checkpoint cause some duplicates, that are rejected by
-> Prometheus as out of order, causing in turn another non-retriable error, in an endless loop.
+> Prometheus as out of order, causing in turn another non-retryable error, in an endless loop.
 
 
 ### Fatal errors
@@ -229,10 +229,10 @@ The sink exposes custom metrics, counting the samples and write-requests (batche
 
 * `numSamplesOut` number of samples successfully written to Prometheus
 * `numWriteRequestsOut` number of write-requests successfully written to Prometheus
-* `numWriteRequestsRetries` number of write requests retried due to a retriable error (e.g. throttling)
+* `numWriteRequestsRetries` number of write requests retried due to a retryable error (e.g. throttling)
 * `numSamplesDropped` number of samples dropped, for any reasons
-* `numSamplesNonRetriableDropped` (when `onPrometheusNonRetriableError` is set to `DISCARD_AND_CONTINUE`) number of
-  samples dropped due to non-retriable errors
+* `numSamplesNonRetryableDropped` (when `onPrometheusNonRetryableError` is set to `DISCARD_AND_CONTINUE`) number of
+  samples dropped due to non-retryable errors
 * `numSamplesRetryLimitDropped` (when `onMaxRetryExceeded` is set to `DISCARD_AND_CONTINUE`) number of samples dropped
   due to reaching the max number of retries
 * `numWriteRequestsPermanentlyFailed` number of write requests permanently failed, due to any reasons (non retryable,

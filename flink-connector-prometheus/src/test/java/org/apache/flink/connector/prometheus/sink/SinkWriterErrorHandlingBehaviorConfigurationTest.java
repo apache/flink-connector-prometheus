@@ -38,20 +38,20 @@ class SinkWriterErrorHandlingBehaviorConfigurationTest {
     }
 
     @Test
-    public void shouldDefaultToDiscardAndContinueOnPrometheusNonRetriableError() {
+    public void shouldDefaultToDiscardAndContinueOnPrometheusNonRetryableError() {
         assertEquals(
                 PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE,
-                DEFAULT_CONFIG.getOnPrometheusNonRetriableError());
+                DEFAULT_CONFIG.getOnPrometheusNonRetryableError());
     }
 
     @Test
-    public void shouldPreventSettingContinueOnPrometheusNonRetriableErrorToFail() {
+    public void shouldPreventSettingContinueOnPrometheusNonRetryableErrorToFail() {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
                         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                                 .builder()
-                                .onPrometheusNonRetriableError(
+                                .onPrometheusNonRetryableError(
                                         PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
                                 .build());
     }

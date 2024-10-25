@@ -72,10 +72,10 @@ class HttpResponseCallbackTest {
     }
 
     @Test
-    void shouldIncFailCountersOnCompletedWith400WhenDiscardAndContinueOnNonRetriableIsSelected() {
+    void shouldIncFailCountersOnCompletedWith400WhenDiscardAndContinueOnNonRetryableIsSelected() {
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
                 SinkWriterErrorHandlingBehaviorConfiguration.builder()
-                        .onPrometheusNonRetriableError(
+                        .onPrometheusNonRetryableError(
                                 PrometheusSinkConfiguration.OnErrorBehavior.DISCARD_AND_CONTINUE)
                         .build();
 
@@ -93,7 +93,7 @@ class HttpResponseCallbackTest {
 
         // Verify only the expected metrics callback was called, once
         assertTrue(
-                metricsCallback.verifyOnlyFailedWriteRequestsForNonRetriableErrorWasCalledOnce());
+                metricsCallback.verifyOnlyFailedWriteRequestsForNonRetryableErrorWasCalledOnce());
 
         // No time series is re-queued
         HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);

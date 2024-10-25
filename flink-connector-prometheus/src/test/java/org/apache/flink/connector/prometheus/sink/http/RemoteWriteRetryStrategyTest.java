@@ -54,7 +54,7 @@ class RemoteWriteRetryStrategyTest {
                     .build();
 
     @Test
-    public void shouldRetryOnRetriableErrorResponse() {
+    public void shouldRetryOnRetryableErrorResponse() {
         HttpResponse httpResponse = httpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
         HttpContext httpContext = httpContext();
         VerifybleSinkMetricsCallback metrics = new VerifybleSinkMetricsCallback();
@@ -65,7 +65,7 @@ class RemoteWriteRetryStrategyTest {
     }
 
     @Test
-    public void shouldNotRetryOnNonRetriableErrorResponse() {
+    public void shouldNotRetryOnNonRetryableErrorResponse() {
         HttpResponse httpResponse = httpResponse(HttpStatus.SC_FORBIDDEN);
         HttpContext httpContext = httpContext();
         VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();
@@ -88,7 +88,7 @@ class RemoteWriteRetryStrategyTest {
     }
 
     @Test
-    public void shouldNotRetryNonRetriableIOExceptions() {
+    public void shouldNotRetryNonRetryableIOExceptions() {
         HttpRequest httpRequest = postHttpRequest();
         HttpContext httpContext = httpContext();
         VerifybleSinkMetricsCallback metricsCallback = new VerifybleSinkMetricsCallback();

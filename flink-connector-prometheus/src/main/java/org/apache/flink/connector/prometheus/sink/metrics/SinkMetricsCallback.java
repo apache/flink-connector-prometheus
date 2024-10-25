@@ -21,7 +21,7 @@ package org.apache.flink.connector.prometheus.sink.metrics;
 import org.apache.flink.annotation.Internal;
 
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRYABLE_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
@@ -52,8 +52,8 @@ public class SinkMetricsCallback {
         metrics.inc(NUM_WRITE_REQUESTS_OUT);
     }
 
-    public void onFailedWriteRequestForNonRetriableError(long sampleCount) {
-        metrics.inc(NUM_SAMPLES_NON_RETRIABLE_DROPPED, sampleCount);
+    public void onFailedWriteRequestForNonRetryableError(long sampleCount) {
+        metrics.inc(NUM_SAMPLES_NON_RETRYABLE_DROPPED, sampleCount);
         onFailedWriteRequest(sampleCount);
     }
 

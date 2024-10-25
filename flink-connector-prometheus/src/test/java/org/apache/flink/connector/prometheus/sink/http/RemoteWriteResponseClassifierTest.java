@@ -22,8 +22,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.apache.flink.connector.prometheus.sink.http.HttpClientTestUtils.httpResponse;
 import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.FATAL_ERROR;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.NON_RETRIABLE_ERROR;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRIABLE_ERROR;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.NON_RETRYABLE_ERROR;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRYABLE_ERROR;
 import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.UNHANDLED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -43,10 +43,10 @@ public class RemoteWriteResponseClassifierTest {
     }
 
     @Test
-    void shouldClassify400AsNonRetriableError() {
+    void shouldClassify400AsNonRetryableError() {
         HttpResponse response = httpResponse(400);
 
-        assertEquals(NON_RETRIABLE_ERROR, RemoteWriteResponseClassifier.classify(response));
+        assertEquals(NON_RETRYABLE_ERROR, RemoteWriteResponseClassifier.classify(response));
     }
 
     @Test
@@ -64,16 +64,16 @@ public class RemoteWriteResponseClassifierTest {
     }
 
     @Test
-    void shouldClassify429AsRetrialeError() {
+    void shouldClassify429AsRetryableError() {
         HttpResponse response = httpResponse(429);
 
-        assertEquals(RETRIABLE_ERROR, RemoteWriteResponseClassifier.classify(response));
+        assertEquals(RETRYABLE_ERROR, RemoteWriteResponseClassifier.classify(response));
     }
 
     @Test
-    void shouldClassify500AsRetriableError() {
+    void shouldClassify500AsRetryableError() {
         HttpResponse response = httpResponse(500);
 
-        assertEquals(RETRIABLE_ERROR, RemoteWriteResponseClassifier.classify(response));
+        assertEquals(RETRYABLE_ERROR, RemoteWriteResponseClassifier.classify(response));
     }
 }

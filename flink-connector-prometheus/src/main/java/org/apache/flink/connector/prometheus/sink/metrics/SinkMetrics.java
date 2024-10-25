@@ -52,15 +52,15 @@ public class SinkMetrics {
     /** Enum defining all sink counters. */
     public enum SinkCounter {
 
-        /** Total number of Samples that were dropped because of causing non-retriable errors. */
-        NUM_SAMPLES_NON_RETRIABLE_DROPPED("numSamplesNonRetriableDropped"),
+        /** Total number of Samples that were dropped because of causing non-retryable errors. */
+        NUM_SAMPLES_NON_RETRYABLE_DROPPED("numSamplesNonRetryableDropped"),
 
-        /** Number of Samples dropped after reaching retry limit on retriable errors. */
+        /** Number of Samples dropped after reaching retry limit on retryable errors. */
         NUM_SAMPLES_RETRY_LIMIT_DROPPED("numSamplesRetryLimitDropped"),
 
         /**
-         * Total number of Samples dropped due to any reasons: retriable errors reaching retry
-         * limit, non-retriable errors, unexpected IO errors.
+         * Total number of Samples dropped due to any reasons: retryable errors reaching retry
+         * limit, non-retryable errors, unexpected IO errors.
          */
         NUM_SAMPLES_DROPPED("numSamplesDropped"),
 
