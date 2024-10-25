@@ -48,14 +48,14 @@ class PrometheusSinkBuilderTest {
                                 .setSocketTimeoutMs(1000)
                                 .setRequestSigner(new DummyPrometheusRequestSigner())
                                 .setHttpUserAgent("test")
-                                .setErrorHandlingBehaviourConfiguration(
+                                .setErrorHandlingBehaviorConfiguration(
                                         PrometheusSinkConfiguration
                                                 .SinkWriterErrorHandlingBehaviorConfiguration
                                                 .builder()
                                                 .onMaxRetryExceeded(
                                                         PrometheusSinkConfiguration.OnErrorBehavior
                                                                 .FAIL)
-                                                .onPrometheusNonRetriableError(
+                                                .onPrometheusNonRetryableError(
                                                         PrometheusSinkConfiguration.OnErrorBehavior
                                                                 .DISCARD_AND_CONTINUE)
                                                 .build())

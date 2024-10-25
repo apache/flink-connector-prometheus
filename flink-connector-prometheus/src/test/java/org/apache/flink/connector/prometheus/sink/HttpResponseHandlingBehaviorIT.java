@@ -48,20 +48,20 @@ import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTes
 import static org.awaitility.Awaitility.await;
 
 /**
- * Test the http response handling behaviour with the full stack handling http client, retries and
+ * Test the http response handling behavior with the full stack handling http client, retries and
  * error handling.
  *
- * <p>The full behaviour is determined by the combination of {@link HttpResponseCallback}, {@link
+ * <p>The full behavior is determined by the combination of {@link HttpResponseCallback}, {@link
  * org.apache.flink.connector.prometheus.sink.http.RemoteWriteRetryStrategy}, {@link
  * PrometheusSinkConfiguration.RetryConfiguration}, {@link
  * org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier}, and {@link
  * PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration}.
  *
- * <p>The behaviour of the stack is tested sending a request through the http client and simulating
+ * <p>The behavior of the stack is tested sending a request through the http client and simulating
  * the response from Prometheus using a WireMock stub.
  */
 @WireMockTest
-public class HttpResponseHandlingBehaviourIT {
+public class HttpResponseHandlingBehaviorIT {
 
     private static final int TIME_SERIES_COUNT = 13;
     private static final long SAMPLE_COUNT = 42;
@@ -140,7 +140,7 @@ public class HttpResponseHandlingBehaviourIT {
         int maxRetryCount = 2;
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(maxRetryCount);
 
-        // 500,Server error is retriable for Prometheus remote-write
+        // 500,Server error is retryable for Prometheus remote-write
         int statusCode = 500;
         serverWillRespond(status(statusCode));
 
@@ -182,7 +182,7 @@ public class HttpResponseHandlingBehaviourIT {
         int maxRetryCount = 2;
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(maxRetryCount);
 
-        // 500,Server error is retriable for Prometheus remote-write
+        // 500,Server error is retryable for Prometheus remote-write
         int statusCode = 500;
         serverWillRespond(status(statusCode));
 
@@ -219,20 +219,20 @@ public class HttpResponseHandlingBehaviourIT {
     }
 
     @Test
-    void shouldNotRetryAndCompleteOn400WhenDiscardAndContinueOnNonRetriableIsSelected(
+    void shouldNotRetryAndCompleteOn400WhenDiscardAndContinueOnNonRetryableIsSelected(
             WireMockRuntimeInfo wmRuntimeInfo) throws URISyntaxException, IOException {
         PrometheusAsyncHttpClientBuilder clientBuilder = getHttpClientBuilder(1);
 
-        // 400,Bad Request is non-retriable for Prometheus remote-write
+        // 400,Bad Request is non-retryable for Prometheus remote-write
         int statusCode = 400;
         serverWillRespond(status(statusCode));
 
-        // Discard and continue on non-retriable
+        // Discard and continue on non-retryable
         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                 errorHandlingBehavior =
                         PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                                 .builder()
-                                .onPrometheusNonRetriableError(
+                                .onPrometheusNonRetryableError(
                                         PrometheusSinkConfiguration.OnErrorBehavior
                                                 .DISCARD_AND_CONTINUE)
                                 .build();
@@ -260,7 +260,7 @@ public class HttpResponseHandlingBehaviourIT {
     void shouldNotRetryCompleteAndThrowExceptionOn304(WireMockRuntimeInfo wmRuntimeInfo)
             throws URISyntaxException, IOException {
 
-        // 304, Not modified is just status code for which the behaviour is not
+        // 304, Not modified is just status code for which the behavior is not
         // specified by Prometheus remote-write specs, and makes the http client
         // terminate successfully
         int statusCode = 304;

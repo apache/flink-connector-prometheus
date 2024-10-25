@@ -102,7 +102,7 @@ public class PrometheusSinkBuilder
                         + "\n\t\tmaxTimeInBufferMs={}\n\t\tmaxInFlightRequests={}\n\t\tmaxBufferedRequests={}"
                         + "\n\t\tRetryConfiguration: initialRetryDelayMs={}, maxRetryDelayMs={}, maxRetryCount={}"
                         + "\n\t\tsocketTimeoutMs={}\n\t\thttpUserAgent={}"
-                        + "\n\t\tErrorHandlingBehaviour: onMaxRetryExceeded={}, onNonRetriableError={}",
+                        + "\n\t\tErrorHandlingBehavior: onMaxRetryExceeded={}, onNonRetryableError={}",
                 actualMaxBatchSizeInSamples,
                 actualMaxRecordSizeInSamples,
                 actualMaxTimeInBufferMS,
@@ -114,7 +114,7 @@ public class PrometheusSinkBuilder
                 socketTimeoutMs,
                 actualHttpUserAgent,
                 actualErrorHandlingBehaviorConfig.getOnMaxRetryExceeded(),
-                actualErrorHandlingBehaviorConfig.getOnPrometheusNonRetriableError());
+                actualErrorHandlingBehaviorConfig.getOnPrometheusNonRetryableError());
 
         return new PrometheusSink(
                 new PrometheusTimeSeriesConverter(),
@@ -168,7 +168,7 @@ public class PrometheusSinkBuilder
         return this;
     }
 
-    public PrometheusSinkBuilder setErrorHandlingBehaviourConfiguration(
+    public PrometheusSinkBuilder setErrorHandlingBehaviorConfiguration(
             PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                     errorHandlingBehaviorConfig) {
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;

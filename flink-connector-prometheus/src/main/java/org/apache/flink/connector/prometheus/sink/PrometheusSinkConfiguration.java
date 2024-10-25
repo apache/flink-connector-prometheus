@@ -31,7 +31,7 @@ import static org.apache.flink.connector.prometheus.sink.PrometheusSinkConfigura
 public class PrometheusSinkConfiguration {
 
     /**
-     * Defines the behaviour when an error is encountered: discard the offending request and
+     * Defines the behavior when an error is encountered: discard the offending request and
      * continue, or fail, throwing an exception.
      */
     public enum OnErrorBehavior {
@@ -46,40 +46,40 @@ public class PrometheusSinkConfiguration {
     public static class SinkWriterErrorHandlingBehaviorConfiguration implements Serializable {
 
         public static final OnErrorBehavior ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR = FAIL;
-        public static final OnErrorBehavior ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR =
+        public static final OnErrorBehavior ON_PROMETHEUS_NON_RETRYABLE_ERROR_DEFAULT_BEHAVIOR =
                 DISCARD_AND_CONTINUE;
 
-        /** Behaviour when the max retries is exceeded on Prometheus retriable errors. */
+        /** Behavior when the max retries is exceeded on Prometheus retryable errors. */
         private final OnErrorBehavior onMaxRetryExceeded;
 
-        /** Behaviour when Prometheus Remote-Write respond with a non-retriable error. */
-        private final OnErrorBehavior onPrometheusNonRetriableError;
+        /** Behavior when Prometheus Remote-Write respond with a non-retryable error. */
+        private final OnErrorBehavior onPrometheusNonRetryableError;
 
         public SinkWriterErrorHandlingBehaviorConfiguration(
-                OnErrorBehavior onMaxRetryExceeded, OnErrorBehavior onPrometheusNonRetriableError) {
-            // onPrometheusNonRetriableError cannot be set to FAIL, because it makes impossible for
+                OnErrorBehavior onMaxRetryExceeded, OnErrorBehavior onPrometheusNonRetryableError) {
+            // onPrometheusNonRetryableError cannot be set to FAIL, because it makes impossible for
             // the job to restart from checkpoint (see FLINK-36319).
             // We are retaining the possibility of configuring the behavior on this type of error to
             // allow implementing a different type of behavior.
             Preconditions.checkArgument(
-                    onPrometheusNonRetriableError == DISCARD_AND_CONTINUE,
-                    "Only DISCARD_AND_CONTINUE is currently supported for onPrometheusNonRetriableError");
+                    onPrometheusNonRetryableError == DISCARD_AND_CONTINUE,
+                    "Only DISCARD_AND_CONTINUE is currently supported for onPrometheusNonRetryableError");
             this.onMaxRetryExceeded = onMaxRetryExceeded;
-            this.onPrometheusNonRetriableError = onPrometheusNonRetriableError;
+            this.onPrometheusNonRetryableError = onPrometheusNonRetryableError;
         }
 
         public OnErrorBehavior getOnMaxRetryExceeded() {
             return onMaxRetryExceeded;
         }
 
-        public OnErrorBehavior getOnPrometheusNonRetriableError() {
-            return onPrometheusNonRetriableError;
+        public OnErrorBehavior getOnPrometheusNonRetryableError() {
+            return onPrometheusNonRetryableError;
         }
 
         /** Builder for PrometheusSinkWriterErrorHandlingConfiguration. */
         public static class Builder {
             private OnErrorBehavior onMaxRetryExceeded = null;
-            private OnErrorBehavior onPrometheusNonRetriableError = null;
+            private OnErrorBehavior onPrometheusNonRetryableError = null;
 
             public Builder() {}
 
@@ -88,8 +88,8 @@ public class PrometheusSinkConfiguration {
                 return this;
             }
 
-            public Builder onPrometheusNonRetriableError(OnErrorBehavior onErrorBehavior) {
-                this.onPrometheusNonRetriableError = onErrorBehavior;
+            public Builder onPrometheusNonRetryableError(OnErrorBehavior onErrorBehavior) {
+                this.onPrometheusNonRetryableError = onErrorBehavior;
                 return this;
             }
 
@@ -97,8 +97,8 @@ public class PrometheusSinkConfiguration {
                 return new SinkWriterErrorHandlingBehaviorConfiguration(
                         Optional.ofNullable(onMaxRetryExceeded)
                                 .orElse(ON_MAX_RETRY_EXCEEDED_DEFAULT_BEHAVIOR),
-                        Optional.ofNullable(onPrometheusNonRetriableError)
-                                .orElse(ON_PROMETHEUS_NON_RETRIABLE_ERROR_DEFAULT_BEHAVIOR));
+                        Optional.ofNullable(onPrometheusNonRetryableError)
+                                .orElse(ON_PROMETHEUS_NON_RETRYABLE_ERROR_DEFAULT_BEHAVIOR));
             }
         }
 

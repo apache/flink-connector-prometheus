@@ -34,15 +34,11 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier.classify;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.FATAL_ERROR;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.NON_RETRIABLE_ERROR;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRIABLE_ERROR;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.SUCCESS;
 
 /**
  * Callback handling the outcome of the http async request.
  *
- * <p>This class implements the error handling behaviour, based on the configuration in {@link
+ * <p>This class implements the error handling behavior, based on the configuration in {@link
  * PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration}. Depending on the
  * condition, the sink may throw an exception and cause the job to fail, or log the condition to
  * WARN, increment the counters and continue with the next request.
@@ -94,8 +90,8 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
      *
      * <p>This method classifies the responses using {@link
      * org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier} and implements
-     * the behaviour expected by the Remote-Write specifications. If the response is classified as
-     * an error, the behaviour is determined by the error handling configuration.
+     * the behavior expected by the Remote-Write specifications. If the response is classified as an
+     * error, the behavior is determined by the error handling configuration.
      */
     @Override
     public void completed(SimpleHttpResponse response) {
@@ -116,7 +112,7 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
                 break;
 
             case FATAL_ERROR: // Response is a fatal error
-                // Throw an exception regardless of configured behaviour
+                // Throw an exception regardless of configured behavior
                 logErrorAndThrow(
                         new PrometheusSinkWriteException(
                                 "Fatal error response from Prometheus",
@@ -127,13 +123,13 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
                                 response.getBodyText()));
                 break;
 
-            case NON_RETRIABLE_ERROR: // Response is a non-retriable error.
+            case NON_RETRYABLE_ERROR: // Response is a non-retryable error.
                 // If behavior is FAIL, throw an exception
-                if (errorHandlingBehaviorConfig.getOnPrometheusNonRetriableError()
+                if (errorHandlingBehaviorConfig.getOnPrometheusNonRetryableError()
                         == OnErrorBehavior.FAIL) {
                     logErrorAndThrow(
                             new PrometheusSinkWriteException(
-                                    "Non-retriable error response from Prometheus",
+                                    "Non-retryable error response from Prometheus",
                                     response.getCode(),
                                     response.getReasonPhrase(),
                                     timeSeriesCount,
@@ -142,7 +138,7 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
                 }
 
                 // Otherwise (DISCARD_AND_CONTINUE), increment discarded data counts & log WARN
-                metricsCallback.onFailedWriteRequestForNonRetriableError(sampleCount);
+                metricsCallback.onFailedWriteRequestForNonRetryableError(sampleCount);
                 LOG.warn(
                         "{},{} {} (discarded {} time-series, containing {} samples)",
                         response.getCode(),
@@ -152,12 +148,12 @@ class HttpResponseCallback implements FutureCallback<SimpleHttpResponse> {
                         sampleCount);
                 break;
 
-            case RETRIABLE_ERROR: // Retry limit exceeded on retriable error
+            case RETRYABLE_ERROR: // Retry limit exceeded on retryable error
                 // If behavior is FAIL, throw an exception
                 if (errorHandlingBehaviorConfig.getOnMaxRetryExceeded() == OnErrorBehavior.FAIL) {
                     logErrorAndThrow(
                             new PrometheusSinkWriteException(
-                                    "Max retry limit exceeded on retriable error",
+                                    "Max retry limit exceeded on retryable error",
                                     response.getCode(),
                                     response.getReasonPhrase(),
                                     timeSeriesCount,

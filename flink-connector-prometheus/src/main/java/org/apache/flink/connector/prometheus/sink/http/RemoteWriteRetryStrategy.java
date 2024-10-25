@@ -41,7 +41,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseClassifier.classify;
-import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRIABLE_ERROR;
+import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteResponseType.RETRYABLE_ERROR;
 
 /**
  * Retry strategy for the http client.
@@ -49,10 +49,10 @@ import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteRespons
  * <p>Based on the http status code returned or the exception thrown, this strategy either retries
  * with an exponential backoff strategy or immediately fail.
  *
- * <p>Response status codes are classified as retriable or non-retriable using {@link
+ * <p>Response status codes are classified as retryable or non-retryable using {@link
  * RemoteWriteResponseClassifier}.
  *
- * <p>All {@link IOException} are considered retriable, except for {@link InterruptedIOException},
+ * <p>All {@link IOException} are considered retryable, except for {@link InterruptedIOException},
  * {@link UnknownHostException}, {@link ConnectException}, {@link NoRouteToHostException}, and
  * {@link SSLException}.
  */
@@ -60,7 +60,7 @@ import static org.apache.flink.connector.prometheus.sink.http.RemoteWriteRespons
 public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
     private static final Logger LOG = LoggerFactory.getLogger(RemoteWriteRetryStrategy.class);
 
-    /** List of exceptions considered non-recoverable (non-retriable). */
+    /** List of exceptions considered non-recoverable (non-retryable). */
     private static final List<Class<? extends IOException>> NON_RECOVERABLE_EXCEPTIONS =
             Collections.unmodifiableList(
                     new ArrayList<Class<? extends IOException>>() {
@@ -106,7 +106,7 @@ public class RemoteWriteRetryStrategy implements HttpRequestRetryStrategy {
 
     @Override
     public boolean retryRequest(HttpResponse httpResponse, int execCount, HttpContext httpContext) {
-        boolean retry = (execCount <= maxRetryCount) && (classify(httpResponse) == RETRIABLE_ERROR);
+        boolean retry = (execCount <= maxRetryCount) && (classify(httpResponse) == RETRYABLE_ERROR);
         LOG.debug(
                 "{} retry on response {} {}, at execution {}",
                 (retry) ? "DO" : "DO NOT",

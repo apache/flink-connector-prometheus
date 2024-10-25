@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.apache.flink.connector.prometheus.sink.InspectableMetricGroupAssertions.assertCounterCount;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_DROPPED;
-import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRIABLE_DROPPED;
+import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_NON_RETRYABLE_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_OUT;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_SAMPLES_RETRY_LIMIT_DROPPED;
 import static org.apache.flink.connector.prometheus.sink.metrics.SinkMetrics.SinkCounter.NUM_WRITE_REQUESTS_OUT;
@@ -55,10 +55,10 @@ class SinkMetricsCallbackTest {
     }
 
     @Test
-    void onFailedWriteRequestForNonRetriableError() {
-        metricsCallback.onFailedWriteRequestForNonRetriableError(SAMPLE_COUNT);
+    void onFailedWriteRequestForNonRetryableError() {
+        metricsCallback.onFailedWriteRequestForNonRetryableError(SAMPLE_COUNT);
 
-        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_NON_RETRIABLE_DROPPED);
+        assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_NON_RETRYABLE_DROPPED);
         assertCounterCount(SAMPLE_COUNT, metricGroup, NUM_SAMPLES_DROPPED);
         assertCounterCount(1, metricGroup, NUM_WRITE_REQUESTS_PERMANENTLY_FAILED);
 

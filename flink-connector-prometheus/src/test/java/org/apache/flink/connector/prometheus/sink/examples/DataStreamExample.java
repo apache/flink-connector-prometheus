@@ -132,7 +132,7 @@ public class DataStreamExample {
                         .setSocketTimeoutMs(5000) // Optional, default 5000 ms
                         // If no Error Handling Behavior configuration is provided, all behaviors
                         // default to FAIL
-                        .setErrorHandlingBehaviourConfiguration(
+                        .setErrorHandlingBehaviorConfiguration(
                                 PrometheusSinkConfiguration
                                         .SinkWriterErrorHandlingBehaviorConfiguration.builder()
                                         .onMaxRetryExceeded(
