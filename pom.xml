@@ -148,6 +148,14 @@ under the License.
                 <scope>import</scope>
             </dependency>
 
+            <!-- ArchUnit test dependencies -->
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-architecture-tests-test</artifactId>
+                <version>${flink.version}</version>
+                <scope>test</scope>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
