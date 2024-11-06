@@ -253,10 +253,6 @@ objects, [Remote](src/main/java/org/apache/flink/connector/prometheus/sink/prome
 [Types](src/main/java/org/apache/flink/connector/prometheus/sink/prometheus/Types.java),
 and [GoGoProtos](src/main/java/org/apache/flink/connector/prometheus/sink/protobuf/GoGoProtos.java).
 
-The [*.proto](src/main/proto) files are provided for reference only. Protobuf binaries are required to re-generate the
-Java classe.
-Please refer to [Protobuf documentation](https://protobuf.dev/getting-started/javatutorial/#compiling-protocol-buffers).
-
 ### Example application
 
 You can find a complete application example using the connector in
