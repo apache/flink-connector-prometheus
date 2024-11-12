@@ -17,7 +17,7 @@
 ################################################################################
 
 version: 1.0.0
-flink_compatibility: [1.19, 1.20]
+flink_compatibility: ["1.19", "1.20"]
 variants:
   - maven: flink-connector-prometheus
   - maven: flink-connector-prometheus-request-signer-amp
