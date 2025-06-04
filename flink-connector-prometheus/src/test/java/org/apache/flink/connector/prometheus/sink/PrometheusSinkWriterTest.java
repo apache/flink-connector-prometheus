@@ -55,8 +55,8 @@ class PrometheusSinkWriterTest {
     void testInizializeAsyncSinkBaseParameters() throws Exception {
         TestSinkInitContext sinkInitContext = new TestSinkInitContext();
 
-        PrometheusSink sink =
-                new PrometheusSink(
+        PrometheusSink<PrometheusTimeSeries> sink =
+                new PrometheusSink<>(
                         ELEMENT_CONVERTER,
                         MAX_IN_FLIGHT_REQUESTS,
                         MAX_BUFFERED_REQUESTS,
@@ -70,7 +70,8 @@ class PrometheusSinkWriterTest {
                         ERROR_HANDLING_BEHAVIOR_CONFIGURATION,
                         METRIC_GROUP_NAME);
 
-        PrometheusSinkWriter sinkWriter = (PrometheusSinkWriter) sink.createWriter(sinkInitContext);
+        PrometheusSinkWriter<PrometheusTimeSeries> sinkWriter =
+                (PrometheusSinkWriter<PrometheusTimeSeries>) sink.createWriter(sinkInitContext);
 
         assertThat(sinkWriter).extracting("maxBatchSize").isEqualTo(MAX_BATCH_SIZE_IN_SAMPLES);
         assertThat(sinkWriter)

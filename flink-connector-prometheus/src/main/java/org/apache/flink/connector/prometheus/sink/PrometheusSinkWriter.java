@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Writer, taking care of batching the {@link PrometheusTimeSeries} and handling retries.
+ * Writer, taking care of batching the {@link IN} and handling retries.
  *
  * <p>The batching of this sink is in terms of Samples, not bytes. The goal is adaptively increase
  * the number of Samples in each batch, a WriteRequest sent to Prometheus, to a configurable number.
@@ -59,7 +59,7 @@ import java.util.function.Consumer;
  * maxBatchSizeInBytes.
  */
 @Internal
-public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, Types.TimeSeries> {
+public class PrometheusSinkWriter<IN> extends AsyncSinkWriter<IN, Types.TimeSeries> {
     private static final Logger LOG = LoggerFactory.getLogger(PrometheusSinkWriter.class);
 
     private final SinkMetricsCallback metricsCallback;
@@ -69,7 +69,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
             errorHandlingBehaviorConfig;
 
     public PrometheusSinkWriter(
-            ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
+            ElementConverter<IN, Types.TimeSeries> elementConverter,
             Sink.InitContext context,
             int maxInFlightRequests,
             int maxBufferedRequests,
@@ -101,7 +101,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
     }
 
     public PrometheusSinkWriter(
-            ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
+            ElementConverter<IN, Types.TimeSeries> elementConverter,
             Sink.InitContext context,
             int maxInFlightRequests,
             int maxBufferedRequests,

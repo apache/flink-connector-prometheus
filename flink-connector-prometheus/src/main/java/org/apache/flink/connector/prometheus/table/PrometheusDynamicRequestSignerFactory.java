@@ -15,15 +15,22 @@
  *  limitations under the License.
  */
 
-package org.apache.flink.connector.prometheus.sink;
+package org.apache.flink.connector.prometheus.table;
 
-import org.apache.flink.annotation.PublicEvolving;
-import org.apache.flink.connector.prometheus.sink.prometheus.Types;
+import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 
-/**
- * Converts the sink input {@link PrometheusTimeSeries} into the Protobuf {@link Types.TimeSeries}
- * that are sent to Prometheus.
- */
-@PublicEvolving
-public class PrometheusTimeSeriesConverter
-        extends PrometheusTimeSeriesBaseConverter<PrometheusTimeSeries> {}
+public interface PrometheusDynamicRequestSignerFactory {
+    /**
+     * Returns the identifier of request signer so it can be uniquely identified and loaded.
+     *
+     * @return identifier of shard assigner factory
+     */
+    String requestSignerIdentifer();
+
+    /**
+     * Returns the specific implementation of {@link PrometheusRequestSigner}.
+     *
+     * @return the shard assigner implementation loaded by this factory
+     */
+    PrometheusRequestSigner getRequestSigner(PrometheusConfig prometheusConfig);
+}

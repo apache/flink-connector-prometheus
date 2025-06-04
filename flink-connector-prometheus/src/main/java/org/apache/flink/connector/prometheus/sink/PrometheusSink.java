@@ -37,11 +37,12 @@ import java.util.Collection;
 
 /** Sink implementation accepting {@link PrometheusTimeSeries} as inputs. */
 @PublicEvolving
-public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> {
+public class PrometheusSink<IN> extends AsyncSinkBase<IN, Types.TimeSeries> {
     private final String prometheusRemoteWriteUrl;
     private final PrometheusAsyncHttpClientBuilder clientBuilder;
     private final PrometheusRequestSigner requestSigner;
     private final int maxBatchSizeInSamples;
+    private final int maxRecordSizeInSamples;
     private final String httpUserAgent;
     private final PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
             errorHandlingBehaviorConfig;
@@ -49,7 +50,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
 
     @SuppressWarnings("checkstyle:RegexpSingleline")
     protected PrometheusSink(
-            ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
+            ElementConverter<IN, Types.TimeSeries> elementConverter,
             int maxInFlightRequests,
             int maxBufferedRequests,
             int maxBatchSizeInSamples,
@@ -93,6 +94,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(metricGroupName), "Missing metric group name");
         this.maxBatchSizeInSamples = maxBatchSizeInSamples;
+        this.maxRecordSizeInSamples = maxRecordSizeInSamples;
         this.requestSigner = requestSigner;
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         this.clientBuilder = clientBuilder;
@@ -102,8 +104,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     }
 
     @Override
-    public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
-            createWriter(InitContext initContext) {
+    public StatefulSinkWriter<IN, BufferedRequestState<Types.TimeSeries>> createWriter(
+            InitContext initContext) {
         SinkMetricsCallback metricsCallback =
                 new SinkMetricsCallback(
                         SinkMetrics.registerSinkMetrics(
@@ -111,13 +113,13 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
         CloseableHttpAsyncClient asyncHttpClient =
                 clientBuilder.buildAndStartClient(metricsCallback);
 
-        return new PrometheusSinkWriter(
+        return new PrometheusSinkWriter<>(
                 getElementConverter(),
                 initContext,
                 getMaxInFlightRequests(),
                 getMaxBufferedRequests(),
                 maxBatchSizeInSamples,
-                getMaxRecordSizeInBytes(),
+                maxRecordSizeInSamples,
                 getMaxTimeInBufferMS(),
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
@@ -128,23 +130,22 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     }
 
     @Override
-    public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
-            restoreWriter(
-                    InitContext initContext,
-                    Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
+    public StatefulSinkWriter<IN, BufferedRequestState<Types.TimeSeries>> restoreWriter(
+            InitContext initContext,
+            Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
         SinkMetricsCallback metricsCallback =
                 new SinkMetricsCallback(
                         SinkMetrics.registerSinkMetrics(
                                 initContext.metricGroup().addGroup(metricGroupName)));
         CloseableHttpAsyncClient asyncHttpClient =
                 clientBuilder.buildAndStartClient(metricsCallback);
-        return new PrometheusSinkWriter(
+        return new PrometheusSinkWriter<>(
                 getElementConverter(),
                 initContext,
                 getMaxInFlightRequests(),
                 getMaxBufferedRequests(),
                 maxBatchSizeInSamples,
-                getMaxRecordSizeInBytes(),
+                maxRecordSizeInSamples,
                 getMaxTimeInBufferMS(),
                 prometheusRemoteWriteUrl,
                 asyncHttpClient,
@@ -155,8 +156,8 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
                 recoveredState);
     }
 
-    public static PrometheusSinkBuilder builder() {
-        return new PrometheusSinkBuilder();
+    public static <IN> PrometheusSinkBuilder<IN> builder() {
+        return new PrometheusSinkBuilder<>();
     }
 
     @Override

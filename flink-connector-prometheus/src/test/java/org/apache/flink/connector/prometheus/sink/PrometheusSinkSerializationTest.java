@@ -26,11 +26,10 @@ public class PrometheusSinkSerializationTest {
 
     @Test
     void shouldBeActuallySerializable() {
-        PrometheusSink sink =
-                (PrometheusSink)
-                        PrometheusSink.builder()
-                                .setPrometheusRemoteWriteUrl("http://example.com/endpoint")
-                                .build();
+        PrometheusSink<PrometheusTimeSeries> sink =
+                PrometheusSink.<PrometheusTimeSeries>builder()
+                        .setPrometheusRemoteWriteUrl("http://example.com/endpoint")
+                        .build();
 
         assertTrue(isSerializable(sink), "The sink object should be serializable");
     }

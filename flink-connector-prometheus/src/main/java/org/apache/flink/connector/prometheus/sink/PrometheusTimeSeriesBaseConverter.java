@@ -18,12 +18,27 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
+
+import java.util.UnknownFormatConversionException;
 
 /**
  * Converts the sink input {@link PrometheusTimeSeries} into the Protobuf {@link Types.TimeSeries}
  * that are sent to Prometheus.
  */
 @PublicEvolving
-public class PrometheusTimeSeriesConverter
-        extends PrometheusTimeSeriesBaseConverter<PrometheusTimeSeries> {}
+public class PrometheusTimeSeriesBaseConverter<IN>
+        implements ElementConverter<IN, Types.TimeSeries> {
+
+    @Override
+    public Types.TimeSeries apply(IN element, SinkWriter.Context context) {
+        if (!(element instanceof PrometheusTimeSeries)) {
+            throw new UnknownFormatConversionException(
+                    "PrometheusTimeSeriesConverter only supports PrometheusTimeSeries element.");
+        }
+
+        return ((PrometheusTimeSeries) element).toTimeSeries();
+    }
+}

@@ -18,6 +18,7 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -114,6 +115,7 @@ public class PrometheusTimeSeries implements Serializable {
     private final Label[] labels;
     private final Sample[] samples;
     private final String metricName;
+    private static final String METRIC_NAME_LABEL_NAME = "__name__";
 
     public PrometheusTimeSeries(String metricName, Label[] labels, Sample[] samples) {
         this.metricName = metricName;
@@ -140,6 +142,35 @@ public class PrometheusTimeSeries implements Serializable {
     public static Builder builderFrom(PrometheusTimeSeries other) {
         return new Builder(
                 Arrays.asList(other.labels), Arrays.asList(other.samples), other.metricName);
+    }
+
+    public Types.TimeSeries toTimeSeries() {
+
+        Types.TimeSeries.Builder builder =
+                Types.TimeSeries.newBuilder()
+                        .addLabels(
+                                Types.Label.newBuilder()
+                                        .setName(METRIC_NAME_LABEL_NAME)
+                                        .setValue(getMetricName())
+                                        .build());
+
+        for (PrometheusTimeSeries.Label label : getLabels()) {
+            builder.addLabels(
+                    Types.Label.newBuilder()
+                            .setName(label.getName())
+                            .setValue(label.getValue())
+                            .build());
+        }
+
+        for (PrometheusTimeSeries.Sample sample : getSamples()) {
+            builder.addSamples(
+                    Types.Sample.newBuilder()
+                            .setValue(sample.getValue())
+                            .setTimestamp(sample.getTimestamp())
+                            .build());
+        }
+
+        return builder.build();
     }
 
     /** Builder for sink input pojo instance. */

@@ -114,7 +114,7 @@ public class DataStreamExample {
         // It is not mandatory to specify all configurations, as they will fall back to the default
         // value
         AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> sink =
-                PrometheusSink.builder()
+                PrometheusSink.<PrometheusTimeSeries>builder()
                         .setPrometheusRemoteWriteUrl(prometheusRemoteWriteUrl)
                         // If the Prometheus implementation expects
                         // authentication, a valid signer implementation
