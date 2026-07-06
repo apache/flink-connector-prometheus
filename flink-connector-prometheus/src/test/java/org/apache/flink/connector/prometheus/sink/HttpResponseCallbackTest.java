@@ -20,18 +20,14 @@ package org.apache.flink.connector.prometheus.sink;
 import org.apache.flink.connector.prometheus.sink.PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration;
 import org.apache.flink.connector.prometheus.sink.errorhandling.PrometheusSinkWriteException;
 import org.apache.flink.connector.prometheus.sink.metrics.VerifybleSinkMetricsCallback;
-import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
 import org.apache.hc.core5.http.HttpStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HttpResponseCallbackTest {
@@ -40,14 +36,12 @@ class HttpResponseCallbackTest {
     private static final long SAMPLE_COUNT = 42;
 
     private VerifybleSinkMetricsCallback metricsCallback;
-    private List<Types.TimeSeries> reQueuedResults;
-    Consumer<List<Types.TimeSeries>> requestResults;
+    private HttpResponseCallbackTestUtils.CapturingResultHandler resultHandler;
 
     @BeforeEach
     void setUp() {
         metricsCallback = new VerifybleSinkMetricsCallback();
-        reQueuedResults = new ArrayList<>();
-        requestResults = HttpResponseCallbackTestUtils.getRequestResult(reQueuedResults);
+        resultHandler = new HttpResponseCallbackTestUtils.CapturingResultHandler();
     }
 
     @Test
@@ -58,7 +52,7 @@ class HttpResponseCallbackTest {
                         SAMPLE_COUNT,
                         metricsCallback,
                         SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
-                        requestResults);
+                        resultHandler);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_OK);
 
@@ -67,8 +61,9 @@ class HttpResponseCallbackTest {
         // Verify only the expected metrics callback was called, once
         assertTrue(metricsCallback.verifyOnlySuccessfulWriteRequestsWasCalledOnce());
 
-        // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
+        // ResultHandler.complete() was called
+        assertTrue(resultHandler.isCompleted());
+        assertFalse(resultHandler.isCompletedExceptionally());
     }
 
     @Test
@@ -85,7 +80,7 @@ class HttpResponseCallbackTest {
                         SAMPLE_COUNT,
                         metricsCallback,
                         errorHandlingBehavior,
-                        requestResults);
+                        resultHandler);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_BAD_REQUEST);
 
@@ -95,12 +90,13 @@ class HttpResponseCallbackTest {
         assertTrue(
                 metricsCallback.verifyOnlyFailedWriteRequestsForNonRetryableErrorWasCalledOnce());
 
-        // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
+        // ResultHandler.complete() was called (discard and continue)
+        assertTrue(resultHandler.isCompleted());
+        assertFalse(resultHandler.isCompletedExceptionally());
     }
 
     @Test
-    void shouldThrowExceptionsOnCompletedWith500WhenFailOnRetryExceededIsSelected() {
+    void shouldSignalExceptionOnCompletedWith500WhenFailOnRetryExceededIsSelected() {
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
                 SinkWriterErrorHandlingBehaviorConfiguration.builder()
                         .onMaxRetryExceeded(PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
@@ -112,15 +108,15 @@ class HttpResponseCallbackTest {
                         SAMPLE_COUNT,
                         metricsCallback,
                         errorHandlingBehavior,
-                        requestResults);
+                        resultHandler);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_SERVER_ERROR);
 
-        assertThrows(
-                PrometheusSinkWriteException.class,
-                () -> {
-                    callback.completed(httpResponse);
-                });
+        callback.completed(httpResponse);
+
+        // Exception should be signaled via resultHandler.completeExceptionally()
+        assertTrue(resultHandler.isCompletedExceptionally());
+        assertInstanceOf(PrometheusSinkWriteException.class, resultHandler.getException());
     }
 
     @Test
@@ -137,7 +133,7 @@ class HttpResponseCallbackTest {
                         SAMPLE_COUNT,
                         metricsCallback,
                         errorHandlingBehavior,
-                        requestResults);
+                        resultHandler);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(HttpStatus.SC_SERVER_ERROR);
 
@@ -147,50 +143,51 @@ class HttpResponseCallbackTest {
         assertTrue(
                 metricsCallback.verifyOnlyFailedWriteRequestsForRetryLimitExceededWasCalledOnce());
 
-        // No time series is re-queued
-        HttpResponseCallbackTestUtils.assertNoReQueuedResult(reQueuedResults);
+        // ResultHandler.complete() was called (discard and continue)
+        assertTrue(resultHandler.isCompleted());
+        assertFalse(resultHandler.isCompletedExceptionally());
     }
 
     @Test
-    void shouldThrowExceptionOnCompletedWith100() {
+    void shouldSignalExceptionOnCompletedWith100() {
         HttpResponseCallback callback =
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
                         SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
-                        requestResults);
+                        resultHandler);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(100);
 
-        assertThrows(
-                PrometheusSinkWriteException.class,
-                () -> {
-                    callback.completed(httpResponse);
-                });
+        callback.completed(httpResponse);
+
+        // Exception should be signaled via resultHandler.completeExceptionally()
+        assertTrue(resultHandler.isCompletedExceptionally());
+        assertInstanceOf(PrometheusSinkWriteException.class, resultHandler.getException());
     }
 
     @Test
-    void shouldThrowExceptionOnCompletedWith403() {
+    void shouldSignalExceptionOnCompletedWith403() {
         HttpResponseCallback callback =
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
                         SinkWriterErrorHandlingBehaviorConfiguration.DEFAULT_BEHAVIORS,
-                        requestResults);
+                        resultHandler);
 
         SimpleHttpResponse httpResponse = new SimpleHttpResponse(403);
 
-        assertThrows(
-                PrometheusSinkWriteException.class,
-                () -> {
-                    callback.completed(httpResponse);
-                });
+        callback.completed(httpResponse);
+
+        // Exception should be signaled via resultHandler.completeExceptionally()
+        assertTrue(resultHandler.isCompletedExceptionally());
+        assertInstanceOf(PrometheusSinkWriteException.class, resultHandler.getException());
     }
 
     @Test
-    void shouldThrowExceptionOnCancelled() {
+    void shouldSignalExceptionOnCancelled() {
         SinkWriterErrorHandlingBehaviorConfiguration errorHandlingBehavior =
                 SinkWriterErrorHandlingBehaviorConfiguration.builder().build();
 
@@ -200,12 +197,12 @@ class HttpResponseCallbackTest {
                         SAMPLE_COUNT,
                         metricsCallback,
                         errorHandlingBehavior,
-                        requestResults);
+                        resultHandler);
 
-        assertThrows(
-                PrometheusSinkWriteException.class,
-                () -> {
-                    callback.cancelled();
-                });
+        callback.cancelled();
+
+        // Exception should be signaled via resultHandler.completeExceptionally()
+        assertTrue(resultHandler.isCompletedExceptionally());
+        assertInstanceOf(PrometheusSinkWriteException.class, resultHandler.getException());
     }
 }

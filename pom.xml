@@ -30,7 +30,7 @@ under the License.
 
     <groupId>org.apache.flink</groupId>
     <artifactId>flink-connector-prometheus-parent</artifactId>
-    <version>1.1-SNAPSHOT</version>
+    <version>2.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Flink : Connectors : Prometheus : Parent</name>
@@ -52,16 +52,18 @@ under the License.
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <flink.version>1.19.1</flink.version>
-        <protobuf.version>3.22.2</protobuf.version>
+        <flink.version>2.2.1</flink.version>
+        <protobuf.version>3.25.5</protobuf.version>
         <apache.httpcomponents.version>5.3</apache.httpcomponents.version>
         <apache.httpcomponents.client.version>5.3.1</apache.httpcomponents.client.version>
-        <jackson-bom.version>2.14.3</jackson-bom.version>
-        <log4j.version>2.17.1</log4j.version>
-        <junit5.version>5.8.1</junit5.version>
+        <jackson-bom.version>2.17.2</jackson-bom.version>
+        <log4j.version>2.24.1</log4j.version>
+        <junit5.version>5.10.2</junit5.version>
         <aws.sdkv2.version>2.25.69</aws.sdkv2.version>
 
         <checkstyle.version>9.3</checkstyle.version>
+        <target.java.version>17</target.java.version>
+        <source.java.version>11</source.java.version>
         <flink.parent.artifactId>flink-connector-prometheus-parent</flink.parent.artifactId>
     </properties>
 
@@ -86,12 +88,12 @@ under the License.
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-lang3</artifactId>
-                <version>3.12.0</version>
+                <version>3.14.0</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
-                <version>1.7.36</version>
+                <version>2.0.13</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
@@ -107,11 +109,6 @@ under the License.
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
                 <version>1.1.10.4</version>
-            </dependency>
-            <dependency>
-                <groupId>com.esotericsoftware.kryo</groupId>
-                <artifactId>kryo</artifactId>
-                <version>2.24.0</version>
             </dependency>
             <dependency>
                 <groupId>org.hamcrest</groupId>

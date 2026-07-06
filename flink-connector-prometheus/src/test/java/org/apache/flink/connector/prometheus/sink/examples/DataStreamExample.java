@@ -17,10 +17,8 @@
 
 package org.apache.flink.connector.prometheus.sink.examples;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.typeutils.GenericTypeInfo;
-import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
-import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import org.apache.flink.api.connector.source.lib.NumberSequenceSource;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.prometheus.sink.PrometheusRequestSigner;
 import org.apache.flink.connector.prometheus.sink.PrometheusSink;
@@ -31,8 +29,7 @@ import org.apache.flink.connector.prometheus.sink.PrometheusTimeSeriesLabelsAndM
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.util.Preconditions;
+import org.apache.flink.util.ParameterTool;
 
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
@@ -83,14 +80,12 @@ public class DataStreamExample {
         int generatorMaxSamplesPerTimeSeries = 10;
         int generatorNumberOfSources = 10;
         short generatorNumberOfMetricsPerSource = 5;
-        long generatorPauseBetweenTimeSeriesMs = 100;
         LOGGER.info(
                 "Data Generator configuration:"
-                        + "\n\t\tMin samples per time series:{}\n\t\tMax samples per time series:{}\n\t\tPause between time series:{} ms"
+                        + "\n\t\tMin samples per time series:{}\n\t\tMax samples per time series:{}"
                         + "\n\t\tNumber of sources:{}\n\t\tNumber of metrics per source:{}",
                 generatorMinSamplesPerTimeSeries,
                 generatorMaxSamplesPerTimeSeries,
-                generatorPauseBetweenTimeSeriesMs,
                 generatorNumberOfSources,
                 generatorNumberOfMetricsPerSource);
 
@@ -102,13 +97,15 @@ public class DataStreamExample {
                                 generatorNumberOfMetricsPerSource)
                         .generator();
 
-        SourceFunction<PrometheusTimeSeries> source =
-                new FixedDelayDataGeneratorSource<>(
-                        PrometheusTimeSeries.class,
-                        eventGenerator,
-                        generatorPauseBetweenTimeSeriesMs);
-
-        DataStream<PrometheusTimeSeries> prometheusTimeSeries = env.addSource(source);
+        // Use NumberSequenceSource (FLIP-27 Source API) to generate a sequence of longs,
+        // then map each element to a PrometheusTimeSeries using the event generator.
+        DataStream<PrometheusTimeSeries> prometheusTimeSeries =
+                env.fromSource(
+                                new NumberSequenceSource(0, Long.MAX_VALUE),
+                                WatermarkStrategy.noWatermarks(),
+                                "data-generator")
+                        .map(i -> eventGenerator.get())
+                        .returns(PrometheusTimeSeries.class);
 
         // Build the sink showing all supported configuration parameters.
         // It is not mandatory to specify all configurations, as they will fall back to the default
@@ -150,49 +147,6 @@ public class DataStreamExample {
                 .sinkTo(sink);
 
         env.execute("Prometheus Sink test");
-    }
-
-    /**
-     * Simple data generator. Generates records continuously, with a fixed delay, using a record
-     * Supplier.
-     */
-    public static class FixedDelayDataGeneratorSource<T>
-            implements SourceFunction<T>, ResultTypeQueryable<T> {
-        private volatile boolean isRunning = true;
-
-        private final Supplier<T> eventGenerator;
-        private final long pauseMillis;
-        private final Class<T> payloadClass;
-
-        public FixedDelayDataGeneratorSource(
-                Class<T> payloadClass, Supplier<T> eventGenerator, long pauseMillis) {
-            Preconditions.checkArgument(
-                    pauseMillis > 0,
-                    "Pause between time-series must be > 0"); // If zero, the source may generate
-            // duplicate timestamps
-            this.eventGenerator = eventGenerator;
-            this.pauseMillis = pauseMillis;
-            this.payloadClass = payloadClass;
-        }
-
-        @Override
-        public void run(SourceContext<T> sourceContext) throws Exception {
-            while (isRunning) {
-                T event = eventGenerator.get();
-                sourceContext.collect(event);
-                Thread.sleep(pauseMillis);
-            }
-        }
-
-        @Override
-        public void cancel() {
-            isRunning = false;
-        }
-
-        @Override
-        public TypeInformation<T> getProducedType() {
-            return new GenericTypeInfo<>(payloadClass);
-        }
     }
 
     /**
