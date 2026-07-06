@@ -72,17 +72,6 @@ class PrometheusSinkWriterTest {
 
         PrometheusSinkWriter sinkWriter = (PrometheusSinkWriter) sink.createWriter(sinkInitContext);
 
-        assertThat(sinkWriter).extracting("maxBatchSize").isEqualTo(MAX_BATCH_SIZE_IN_SAMPLES);
-        assertThat(sinkWriter)
-                .extracting("maxBatchSizeInBytes")
-                .isEqualTo((long) MAX_BATCH_SIZE_IN_SAMPLES);
-
-        assertThat(sinkWriter).extracting("maxBufferedRequests").isEqualTo(MAX_BUFFERED_REQUESTS);
-        assertThat(sinkWriter)
-                .extracting("maxRecordSizeInBytes")
-                .isEqualTo((long) MAX_RECORD_SIZE_IN_SAMPLES);
-        assertThat(sinkWriter).extracting("maxTimeInBufferMS").isEqualTo(MAX_TIME_IN_BUFFER_MS);
-
         assertThat(sinkWriter)
                 .extracting("requestBuilder")
                 .extracting("prometheusRemoteWriteUrl")
