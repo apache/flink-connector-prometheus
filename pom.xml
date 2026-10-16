@@ -40,6 +40,7 @@ under the License.
     <modules>
         <module>flink-connector-prometheus</module>
         <module>flink-connector-prometheus-request-signer-amp</module>
+        <module>flink-connector-prometheus-e2e-tests</module>
     </modules>
 
     <licenses>
