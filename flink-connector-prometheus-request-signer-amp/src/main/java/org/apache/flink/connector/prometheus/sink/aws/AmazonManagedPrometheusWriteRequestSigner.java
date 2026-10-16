@@ -59,12 +59,19 @@ public class AmazonManagedPrometheusWriteRequestSigner implements PrometheusRequ
      * @param awsRegion Region of the AMP workspace
      */
     public AmazonManagedPrometheusWriteRequestSigner(String remoteWriteUrl, String awsRegion) {
+        this(remoteWriteUrl, awsRegion, DefaultCredentialsProvider.create());
+    }
+
+    public AmazonManagedPrometheusWriteRequestSigner(
+            String remoteWriteUrl, String awsRegion, AwsCredentialsProvider credentialsProvider) {
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(awsRegion), "awsRegion cannot be null or empty");
         Preconditions.checkArgument(
                 StringUtils.isNotBlank(remoteWriteUrl), "remoteWriteUrl cannot be null or empty");
 
         this.awsRegion = awsRegion;
+        this.credentialsProvider = credentialsProvider;
+
         try {
             this.remoteWriteUrl = new URL(remoteWriteUrl);
         } catch (MalformedURLException e) {

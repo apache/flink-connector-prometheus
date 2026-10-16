@@ -27,52 +27,54 @@ class PrometheusSinkBuilderTest {
 
     @Test
     void shouldBuildSinkOnlyProvidingPrometheusRemoteWriteUrl() {
-        PrometheusSink sink =
-                (PrometheusSink)
-                        new PrometheusSinkBuilder().setPrometheusRemoteWriteUrl(ENDPOINT).build();
+        PrometheusSink<PrometheusTimeSeries> sink =
+                new PrometheusSinkBuilder<PrometheusTimeSeries>()
+                        .setPrometheusRemoteWriteUrl(ENDPOINT)
+                        .build();
         assertNotNull(sink);
     }
 
     @Test
     void shouldBuildSinkProvidingAllFields() {
-        PrometheusSink sink =
-                (PrometheusSink)
-                        new PrometheusSinkBuilder()
-                                .setPrometheusRemoteWriteUrl(ENDPOINT)
-                                .setMaxBatchSizeInSamples(500)
-                                .setMaxRecordSizeInSamples(500)
-                                .setMaxTimeInBufferMS(5000)
-                                .setRetryConfiguration(
-                                        PrometheusSinkConfiguration.RetryConfiguration
-                                                .DEFAULT_RETRY_CONFIGURATION)
-                                .setSocketTimeoutMs(1000)
-                                .setRequestSigner(new DummyPrometheusRequestSigner())
-                                .setHttpUserAgent("test")
-                                .setErrorHandlingBehaviorConfiguration(
-                                        PrometheusSinkConfiguration
-                                                .SinkWriterErrorHandlingBehaviorConfiguration
-                                                .builder()
-                                                .onMaxRetryExceeded(
-                                                        PrometheusSinkConfiguration.OnErrorBehavior
-                                                                .FAIL)
-                                                .onPrometheusNonRetryableError(
-                                                        PrometheusSinkConfiguration.OnErrorBehavior
-                                                                .DISCARD_AND_CONTINUE)
-                                                .build())
-                                .setMetricGroupName("test")
-                                .build();
+        PrometheusSink<PrometheusTimeSeries> sink =
+                new PrometheusSinkBuilder<PrometheusTimeSeries>()
+                        .setPrometheusRemoteWriteUrl(ENDPOINT)
+                        .setMaxBatchSizeInSamples(500)
+                        .setMaxRecordSizeInSamples(500)
+                        .setRetryConfiguration(
+                                PrometheusSinkConfiguration.RetryConfiguration
+                                        .DEFAULT_RETRY_CONFIGURATION)
+                        .setSocketTimeoutMs(1000)
+                        .setRequestSigner(new DummyPrometheusRequestSigner())
+                        .setHttpUserAgent("test")
+                        .setErrorHandlingBehaviorConfiguration(
+                                PrometheusSinkConfiguration
+                                        .SinkWriterErrorHandlingBehaviorConfiguration.builder()
+                                        .onMaxRetryExceeded(
+                                                PrometheusSinkConfiguration.OnErrorBehavior.FAIL)
+                                        .onPrometheusNonRetryableError(
+                                                PrometheusSinkConfiguration.OnErrorBehavior
+                                                        .DISCARD_AND_CONTINUE)
+                                        .build())
+                        .setMetricGroupName("test")
+                        .build();
         assertNotNull(sink);
     }
 
     @Test
     void shouldFailIfPrometheusRemoteWriteUrlIsMissing() {
-        assertThrows(IllegalArgumentException.class, () -> new PrometheusSinkBuilder().build());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new PrometheusSinkBuilder<PrometheusTimeSeries>().build());
     }
 
     @Test
     void shouldFailIfPrometheusRemoteWriteUrlIsInvalid() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new PrometheusSinkBuilder().setPrometheusRemoteWriteUrl("invalid").build());
+                () ->
+                        new PrometheusSinkBuilder<PrometheusTimeSeries>()
+                                .setPrometheusRemoteWriteUrl("invalid")
+                                .build());
     }
 }

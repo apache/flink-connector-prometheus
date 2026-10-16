@@ -40,6 +40,7 @@ under the License.
     <modules>
         <module>flink-connector-prometheus</module>
         <module>flink-connector-prometheus-request-signer-amp</module>
+        <module>flink-sql-connector-prometheus</module>
     </modules>
 
     <licenses>
@@ -156,6 +157,19 @@ under the License.
                 <scope>test</scope>
             </dependency>
 
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-test-utils</artifactId>
+                <version>${flink.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-test-utils-junit</artifactId>
+                <version>${flink.version}</version>
+                <scope>test</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

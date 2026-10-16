@@ -18,8 +18,8 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.annotation.PublicEvolving;
-import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.AsyncSinkBaseBuilder;
+import org.apache.flink.connector.base.sink.writer.ElementConverter;
 import org.apache.flink.connector.prometheus.sink.http.PrometheusAsyncHttpClientBuilder;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
@@ -30,9 +30,8 @@ import java.util.Optional;
 
 /** Builder for Sink implementation. */
 @PublicEvolving
-public class PrometheusSinkBuilder
-        extends AsyncSinkBaseBuilder<
-                PrometheusTimeSeries, Types.TimeSeries, PrometheusSinkBuilder> {
+public class PrometheusSinkBuilder<IN>
+        extends AsyncSinkBaseBuilder<IN, Types.TimeSeries, PrometheusSinkBuilder<IN>> {
     private static final Logger LOG = LoggerFactory.getLogger(PrometheusSinkBuilder.class);
 
     // Max batch size, in number of samples
@@ -56,22 +55,31 @@ public class PrometheusSinkBuilder
     private String httpUserAgent = null;
     private PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
             errorHandlingBehaviorConfig = null;
+    private ElementConverter<IN, Types.TimeSeries> elementConverter;
     private String metricGroupName = null;
 
-    @Override
-    public AsyncSinkBase<PrometheusTimeSeries, Types.TimeSeries> build() {
+    public PrometheusSinkBuilder<IN> setElementConverter(
+            ElementConverter<IN, Types.TimeSeries> elementConverter) {
+        this.elementConverter = elementConverter;
+        return this;
+    }
 
+    @Override
+    public PrometheusSink<IN> build() {
         int actualMaxBatchSizeInSamples =
                 Optional.ofNullable(maxBatchSizeInSamples)
                         .orElse(DEFAULT_MAX_BATCH_SIZE_IN_SAMPLES);
+
         int actualMaxBufferedRequests =
-                Optional.ofNullable(getMaxBufferedRequests()).orElse(DEFAULT_MAX_BUFFERED_REQUESTS);
+                Optional.ofNullable(super.getMaxBufferedRequests())
+                        .orElse(DEFAULT_MAX_BUFFERED_REQUESTS);
+
         long actualMaxTimeInBufferMS =
-                Optional.ofNullable(getMaxTimeInBufferMS()).orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS);
+                Optional.ofNullable(super.getMaxTimeInBufferMS())
+                        .orElse(DEFAULT_MAX_TIME_IN_BUFFER_MS);
 
         int actualMaxRecordSizeInSamples =
                 Optional.ofNullable(maxRecordSizeInSamples).orElse(actualMaxBatchSizeInSamples);
-
         int actualSocketTimeoutMs =
                 Optional.ofNullable(socketTimeoutMs)
                         .orElse(PrometheusAsyncHttpClientBuilder.DEFAULT_SOCKET_TIMEOUT_MS);
@@ -116,8 +124,9 @@ public class PrometheusSinkBuilder
                 actualErrorHandlingBehaviorConfig.getOnMaxRetryExceeded(),
                 actualErrorHandlingBehaviorConfig.getOnPrometheusNonRetryableError());
 
-        return new PrometheusSink(
-                new PrometheusTimeSeriesConverter(),
+        return new PrometheusSink<>(
+                Optional.ofNullable(elementConverter)
+                        .orElse(new PrometheusTimeSeriesBaseConverter<>()),
                 MAX_IN_FLIGHT_REQUESTS,
                 actualMaxBufferedRequests,
                 actualMaxBatchSizeInSamples,
@@ -132,50 +141,50 @@ public class PrometheusSinkBuilder
                 actualMetricGroupName);
     }
 
-    public PrometheusSinkBuilder setPrometheusRemoteWriteUrl(String prometheusRemoteWriteUrl) {
+    public PrometheusSinkBuilder<IN> setPrometheusRemoteWriteUrl(String prometheusRemoteWriteUrl) {
         this.prometheusRemoteWriteUrl = prometheusRemoteWriteUrl;
         return this;
     }
 
-    public PrometheusSinkBuilder setRequestSigner(PrometheusRequestSigner requestSigner) {
+    public PrometheusSinkBuilder<IN> setRequestSigner(PrometheusRequestSigner requestSigner) {
         this.requestSigner = requestSigner;
         return this;
     }
 
-    public PrometheusSinkBuilder setMaxBatchSizeInSamples(int maxBatchSizeInSamples) {
+    public PrometheusSinkBuilder<IN> setMaxBatchSizeInSamples(int maxBatchSizeInSamples) {
         this.maxBatchSizeInSamples = maxBatchSizeInSamples;
         return this;
     }
 
-    public PrometheusSinkBuilder setMaxRecordSizeInSamples(int maxRecordSizeInSamples) {
+    public PrometheusSinkBuilder<IN> setMaxRecordSizeInSamples(int maxRecordSizeInSamples) {
         this.maxRecordSizeInSamples = maxRecordSizeInSamples;
         return this;
     }
 
-    public PrometheusSinkBuilder setRetryConfiguration(
+    public PrometheusSinkBuilder<IN> setRetryConfiguration(
             PrometheusSinkConfiguration.RetryConfiguration retryConfiguration) {
         this.retryConfiguration = retryConfiguration;
         return this;
     }
 
-    public PrometheusSinkBuilder setSocketTimeoutMs(int socketTimeoutMs) {
+    public PrometheusSinkBuilder<IN> setSocketTimeoutMs(int socketTimeoutMs) {
         this.socketTimeoutMs = socketTimeoutMs;
         return this;
     }
 
-    public PrometheusSinkBuilder setHttpUserAgent(String httpUserAgent) {
+    public PrometheusSinkBuilder<IN> setHttpUserAgent(String httpUserAgent) {
         this.httpUserAgent = httpUserAgent;
         return this;
     }
 
-    public PrometheusSinkBuilder setErrorHandlingBehaviorConfiguration(
+    public PrometheusSinkBuilder<IN> setErrorHandlingBehaviorConfiguration(
             PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                     errorHandlingBehaviorConfig) {
         this.errorHandlingBehaviorConfig = errorHandlingBehaviorConfig;
         return this;
     }
 
-    public PrometheusSinkBuilder setMetricGroupName(String metricGroupName) {
+    public PrometheusSinkBuilder<IN> setMetricGroupName(String metricGroupName) {
         this.metricGroupName = metricGroupName;
         return this;
     }
@@ -184,20 +193,20 @@ public class PrometheusSinkBuilder
 
     /** Not supported. Use setMaxBatchSizeInSamples(int) instead */
     @Override
-    public PrometheusSinkBuilder setMaxBatchSize(int maxBatchSize) {
+    public PrometheusSinkBuilder<IN> setMaxBatchSize(int maxBatchSize) {
         throw new UnsupportedOperationException("maxBatchSize is not supported by this sink");
     }
 
     /** Not supported. Use setMaxBatchSizeInSamples(int) instead */
     @Override
-    public PrometheusSinkBuilder setMaxBatchSizeInBytes(long maxBatchSizeInBytes) {
+    public PrometheusSinkBuilder<IN> setMaxBatchSizeInBytes(long maxBatchSizeInBytes) {
         throw new UnsupportedOperationException(
                 "maxBatchSizeInBytes is not supported by this sink");
     }
 
     /** Not supported. Use setMaxRecordSizeInSamples(int) instead */
     @Override
-    public PrometheusSinkBuilder setMaxRecordSizeInBytes(long maxRecordSizeInBytes) {
+    public PrometheusSinkBuilder<IN> setMaxRecordSizeInBytes(long maxRecordSizeInBytes) {
         throw new UnsupportedOperationException(
                 "maxRecordSizeInBytes is not supported by this sink");
     }

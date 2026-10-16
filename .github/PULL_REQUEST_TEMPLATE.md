@@ -32,7 +32,7 @@ This change added tests and can be verified as follows:
 *(example:)*
 - *Added integration tests for end-to-end deployment*
 - *Added unit tests*
-- *Manually verified by running the Kinesis connector on a local Flink cluster.*
+- *Manually verified by running the Prometheus connector on a local Flink cluster.*
 
 ## Significant changes
 *(Please check any boxes [x] if the answer is "yes". You can first publish the PR and check them afterwards, for convenience.)*
