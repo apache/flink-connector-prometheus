@@ -1,41 +1,20 @@
-/*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- */
-
 package org.apache.flink.connector.prometheus.sink;
 
+import org.apache.flink.connector.base.sink.writer.ResultHandler;
 import org.apache.flink.connector.prometheus.sink.prometheus.Types;
 
 import org.junit.jupiter.api.Assertions;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Utilities for test involving the {@link
- * org.apache.flink.connector.prometheus.sink.HttpResponseCallback}.
- */
 public class HttpResponseCallbackTestUtils {
-    public static Consumer<List<Types.TimeSeries>> getRequestResult(
-            List<Types.TimeSeries> requeuedResults) {
-        return requeuedResults::addAll;
+    public static ResultHandler<Types.TimeSeries> getResultHandler() {
+        return new CapturingResultHandler();
     }
 
     public static void assertNoReQueuedResult(List<Types.TimeSeries> emittedResults) {
@@ -54,18 +33,64 @@ public class HttpResponseCallbackTestUtils {
                         + actualCompletionCount
                         + " times, but once was expected");
 
-        Exception exceptionThrown = callback.getThrownExceptionAtInvocationCount(1);
-        assertNull(exceptionThrown, "An exception was thrown on completed, but none was expected");
+        // Check that resultHandler was NOT completed exceptionally
+        assertFalse(
+                callback.getCapturingResultHandler().isCompletedExceptionally(),
+                "ResultHandler received an exception, but none was expected");
     }
 
     public static void assertCallbackCompletedOnceWithException(
             Class<? extends Exception> expectedExceptionClass,
             VerifyableResponseCallback callback) {
-        Exception thrownException = callback.getThrownExceptionAtInvocationCount(1);
-        Assertions.assertNotNull(
-                thrownException, "Exception on complete was expected, but none was thrown");
+        // Check that the resultHandler received an exception
         assertTrue(
-                thrownException.getClass().isAssignableFrom(expectedExceptionClass),
-                "Unexpected exception type thrown on completed");
+                callback.getCapturingResultHandler().isCompletedExceptionally(),
+                "Exception was expected, but ResultHandler did not receive one");
+        Exception receivedException = callback.getCapturingResultHandler().getException();
+        Assertions.assertNotNull(
+                receivedException, "Exception on complete was expected, but none was received");
+        assertTrue(
+                expectedExceptionClass.isAssignableFrom(receivedException.getClass()),
+                "Unexpected exception type: expected "
+                        + expectedExceptionClass.getName()
+                        + " but got "
+                        + receivedException.getClass().getName());
+    }
+
+    public static class CapturingResultHandler implements ResultHandler<Types.TimeSeries> {
+        private boolean completed = false;
+        private Exception exception = null;
+        private final List<Types.TimeSeries> retriedEntries = new ArrayList<>();
+
+        @Override
+        public void complete() {
+            completed = true;
+        }
+
+        @Override
+        public void completeExceptionally(Exception e) {
+            exception = e;
+        }
+
+        @Override
+        public void retryForEntries(List<Types.TimeSeries> entries) {
+            retriedEntries.addAll(entries);
+        }
+
+        public boolean isCompleted() {
+            return completed;
+        }
+
+        public boolean isCompletedExceptionally() {
+            return exception != null;
+        }
+
+        public Exception getException() {
+            return exception;
+        }
+
+        public List<Types.TimeSeries> getRetriedEntries() {
+            return retriedEntries;
+        }
     }
 }

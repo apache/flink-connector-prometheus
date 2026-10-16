@@ -18,6 +18,8 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.connector.sink2.StatefulSinkWriter;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.base.sink.AsyncSinkBase;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
@@ -31,8 +33,8 @@ import org.apache.flink.util.Preconditions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collection;
 
 /** Sink implementation accepting {@link PrometheusTimeSeries} as inputs. */
@@ -103,7 +105,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
 
     @Override
     public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
-            createWriter(InitContext initContext) {
+            createWriter(WriterInitContext initContext) {
         SinkMetricsCallback metricsCallback =
                 new SinkMetricsCallback(
                         SinkMetrics.registerSinkMetrics(
@@ -130,7 +132,7 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
     @Override
     public StatefulSinkWriter<PrometheusTimeSeries, BufferedRequestState<Types.TimeSeries>>
             restoreWriter(
-                    InitContext initContext,
+                    WriterInitContext initContext,
                     Collection<BufferedRequestState<Types.TimeSeries>> recoveredState) {
         SinkMetricsCallback metricsCallback =
                 new SinkMetricsCallback(
@@ -167,9 +169,13 @@ public class PrometheusSink extends AsyncSinkBase<PrometheusTimeSeries, Types.Ti
 
     private static void checkValidRemoteWriteUrl(String url) {
         try {
-            new URL(url);
-        } catch (MalformedURLException mue) {
-            throw new IllegalArgumentException("Invalid Remote-Write URL: " + url, mue);
+            URI uri = new URI(url);
+            if (uri.getScheme() == null || uri.getHost() == null) {
+                throw new IllegalArgumentException(
+                        "Invalid Remote-Write URL (must be absolute with scheme and host): " + url);
+            }
+        } catch (URISyntaxException use) {
+            throw new IllegalArgumentException("Invalid Remote-Write URL: " + url, use);
         }
     }
 }

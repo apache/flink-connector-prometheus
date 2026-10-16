@@ -18,10 +18,11 @@
 package org.apache.flink.connector.prometheus.sink;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.sink2.Sink;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 import org.apache.flink.connector.base.sink.writer.AsyncSinkWriter;
 import org.apache.flink.connector.base.sink.writer.BufferedRequestState;
 import org.apache.flink.connector.base.sink.writer.ElementConverter;
+import org.apache.flink.connector.base.sink.writer.ResultHandler;
 import org.apache.flink.connector.base.sink.writer.config.AsyncSinkWriterConfiguration;
 import org.apache.flink.connector.prometheus.sink.metrics.SinkMetricsCallback;
 import org.apache.flink.connector.prometheus.sink.prometheus.Remote;
@@ -38,7 +39,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * Writer, taking care of batching the {@link PrometheusTimeSeries} and handling retries.
@@ -70,7 +70,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
 
     public PrometheusSinkWriter(
             ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
-            Sink.InitContext context,
+            WriterInitContext context,
             int maxInFlightRequests,
             int maxBufferedRequests,
             int maxBatchSizeInSamples,
@@ -102,7 +102,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
 
     public PrometheusSinkWriter(
             ElementConverter<PrometheusTimeSeries, Types.TimeSeries> elementConverter,
-            Sink.InitContext context,
+            WriterInitContext context,
             int maxInFlightRequests,
             int maxBufferedRequests,
             int maxBatchSizeInSamples,
@@ -151,7 +151,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
 
     @Override
     protected void submitRequestEntries(
-            List<Types.TimeSeries> requestEntries, Consumer<List<Types.TimeSeries>> requestResult) {
+            List<Types.TimeSeries> requestEntries, ResultHandler<Types.TimeSeries> resultHandler) {
         int timeSeriesCount = requestEntries.size();
         long sampleCount = RequestEntrySizeUtils.countSamples(requestEntries);
         if (LOG.isTraceEnabled()) {
@@ -175,7 +175,7 @@ public class PrometheusSinkWriter extends AsyncSinkWriter<PrometheusTimeSeries, 
                         sampleCount,
                         metricsCallback,
                         errorHandlingBehaviorConfig,
-                        requestResult));
+                        resultHandler));
     }
 
     @Override

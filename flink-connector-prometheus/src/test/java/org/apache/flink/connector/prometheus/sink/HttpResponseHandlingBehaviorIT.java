@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.exactly;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
@@ -44,7 +43,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.assertCallbackCompletedOnceWithException;
 import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.assertCallbackCompletedOnceWithNoException;
-import static org.apache.flink.connector.prometheus.sink.HttpResponseCallbackTestUtils.getRequestResult;
 import static org.awaitility.Awaitility.await;
 
 /**
@@ -93,13 +91,16 @@ public class HttpResponseHandlingBehaviorIT {
             SinkMetricsCallback metricsCallback,
             PrometheusSinkConfiguration.SinkWriterErrorHandlingBehaviorConfiguration
                     errorHandlingBehavior) {
+        HttpResponseCallbackTestUtils.CapturingResultHandler capturingResultHandler =
+                new HttpResponseCallbackTestUtils.CapturingResultHandler();
         return new VerifyableResponseCallback(
                 new HttpResponseCallback(
                         TIME_SERIES_COUNT,
                         SAMPLE_COUNT,
                         metricsCallback,
                         errorHandlingBehavior,
-                        getRequestResult(new ArrayList<>())));
+                        capturingResultHandler),
+                capturingResultHandler);
     }
 
     @Test

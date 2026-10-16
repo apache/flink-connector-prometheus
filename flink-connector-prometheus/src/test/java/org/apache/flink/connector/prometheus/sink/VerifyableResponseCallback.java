@@ -34,12 +34,16 @@ import java.util.Map;
 public class VerifyableResponseCallback extends CallbackContribution<SimpleHttpResponse> {
 
     private final HttpResponseCallback responseCallback;
+    private final HttpResponseCallbackTestUtils.CapturingResultHandler capturingResultHandler;
     private final List<SimpleHttpResponse> completedResponses = new ArrayList<>();
     private final Map<Integer, Exception> thrownExceptions = new HashMap<>();
 
-    VerifyableResponseCallback(HttpResponseCallback responseCallback) {
+    VerifyableResponseCallback(
+            HttpResponseCallback responseCallback,
+            HttpResponseCallbackTestUtils.CapturingResultHandler capturingResultHandler) {
         super(responseCallback);
         this.responseCallback = responseCallback;
+        this.capturingResultHandler = capturingResultHandler;
     }
 
     @Override
@@ -74,5 +78,9 @@ public class VerifyableResponseCallback extends CallbackContribution<SimpleHttpR
         } else {
             return null;
         }
+    }
+
+    public HttpResponseCallbackTestUtils.CapturingResultHandler getCapturingResultHandler() {
+        return capturingResultHandler;
     }
 }
